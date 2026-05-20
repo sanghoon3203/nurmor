@@ -1,60 +1,408 @@
-# 컴포넌트 설계 명세서 (Components Specification)
+# Atlas Component Specification
 
-이 문서는 에코 도감(Eco-Pokedex) 프로젝트의 주요 화면 및 UI Primitives 공통 컴포넌트들의 상세 스펙을 정의합니다.
+이 문서는 Atlas의 공통 컴포넌트와 주요 화면 컴포넌트를 정의한다. 모든 컴포넌트는 [design_system.md](./design_system.md)의 `Calm Field System` 토큰을 기준으로 구현한다.
 
----
+## 1. Button
 
-## 1. UI Primitives (공통 컴포넌트)
+### Component Name
+`Button`
 
-### 1.1 AntigravityGradientButton.tsx
-*   **용도**: 메인 촬영, 분석 시작, 해금 확인 등의 핵심 사용자 액션 버튼.
-*   **구조**: 
-    *   `expo-linear-gradient`를 통한 백그라운드 색상 표출.
-    *   외곽을 감싸는 픽셀 더블 보더 레이아웃.
-*   **인터랙션 및 애니메이션 (토스/12가지 UI 원칙)**:
-    *   터치 시 `reanimated` 스프링 피드백을 통해 버튼 크기가 `scale: 0.95`로 줄어들며 4px 아래로 가라앉음 (`translateY: 4`).
-    *   손을 뗄 때 다시 부드럽게 원래의 모양으로 튕겨 나오는 감속 Easing 적용.
-    *   터치 다운 및 캡처 성공 시 `expo-haptics` 라이브러리로 서로 다른 강도의 진동 피드백 전달.
+### Purpose
+주요 액션, 보조 액션, 위험 액션을 일관된 크기와 상태로 제공한다.
 
-### 1.2 GlassmorphicPixelCard.tsx
-*   **용도**: 도감 리스트의 요소 카드 및 상세 정보 표시 패널.
-*   **구조**:
-    *   반투명 다크 컬러(`backgroundColor: '#12121a95'`) 적용.
-    *   픽셀 계단식 더블 보더 디자인.
-    *   네온 반사광 하이라이트 데코레이션 탑재.
+### Anatomy
+- Container
+- Optional leading icon
+- Label
+- Optional trailing icon
+- Loading indicator
 
-### 1.3 Typography.tsx
-*   **용도**: 전역 텍스트의 일관된 폰트 렌더링.
-*   **구조**:
-    *   `C:\Users\starn\Downloads\pokemon-bw.ttf` 로컬 파일의 바인딩을 체크하여 사용.
-    *   제목, 본문, 보조 라벨 등 구조화된 `font-size` 가이드 제공.
-    *   가독성 확보를 위한 픽셀 스타일 텍스트 섀도우 지원.
+### Variants
+- `primary`: 가장 중요한 화면당 1개 CTA. 예: 분석 시작, 캡처 저장
+- `secondary`: 보조 액션. 예: 다시 촬영
+- `ghost`: 낮은 위계 액션. 예: 닫기, 건너뛰기
+- `destructive`: 삭제, 초기화 같은 위험 액션
 
----
+### States
+- `default`
+- `pressed`
+- `focused`
+- `disabled`
+- `loading`
 
-## 2. 화면 및 미디어 컴포넌트 (Screens & Media Components)
+### Usage Guidelines
+- 화면당 `primary` 버튼은 1개를 원칙으로 한다.
+- 버튼 label은 동사로 시작한다. 예: `분석 시작`, `다시 촬영`, `지도에서 보기`
+- loading 중에는 중복 터치를 막고 label을 유지하거나 `분석 중`처럼 상태를 명확히 쓴다.
 
-### 2.1 CameraCaptureScreen.tsx (카메라 화면)
-*   **HUD 오버레이**:
-    *   화면 전면에 네온 그린의 흐르는 스캔라인 바 배치 (`reanimated` 무한 루프).
-    *   녹화 작동 시 상단에 1초 주기로 깜빡이는 빨간색 `REC` LED 도트 표시.
-*   **모드 스위처 (Mode Switcher)**:
-    *   `VISUAL` (동영상/사진 촬영) ↔ `AUDIO` (단독 사운드 녹음) 간 빠른 전환을 지원하는 레트로 탭 토글.
-*   **단독 녹음 기능**:
-    *   오디오 모드 선택 시 카메라 화면을 어두운 정적 스크린으로 마스킹하고, 마이크 입력 볼륨 피드백을 중앙에 중점 렌더링.
+### Do / Don't
+- Do: `primary`는 `color.brand.primary` 배경과 `color.background.default` 텍스트를 사용한다.
+- Do: 터치 피드백은 `motion.scale.pressed`를 사용한다.
+- Don't: 기본 버튼에 그라디언트, 픽셀 더블 보더, 강한 glow를 적용하지 않는다.
 
-### 2.2 DecibelWaveform.tsx (실시간 음파 시각화)
-*   **용도**: 오디오 모드 및 비디오 녹화 중 주변 수음 크기를 실시간 피드백.
-*   **구조**:
-    *   `expo-av` 마이크로폰 데시벨 신호를 실시간 스트리밍.
-    *   중앙 정렬된 수직 픽셀 기둥들이 수음 볼륨에 비례하여 늘어남.
-    *   수직 기둥 내부에는 아래부터 녹색 ➔ 하늘색 ➔ 보라색으로 이어지는 네온 그라디언트를 채색.
-    *   볼륨이 급변해도 픽셀 기둥이 끊기지 않고 부드럽게 복귀하도록 Easing 기반 인터폴레이션(Interpolation) 적용.
+### Design Tokens
+- `color.brand.primary`
+- `color.brand.primaryHover`
+- `color.semantic.danger`
+- `radius.md`
+- `spacing.sm`
+- `spacing.md`
+- `motion.duration.fast`
 
-### 2.3 EcoMapScreen.tsx (에코 맵 화면)
-*   **용도**: 사용자 GPS 위치 매핑 및 지역 탐사 현황 시각화.
-*   **구조**:
-    *   `react-native-maps`를 로컬에 바인딩.
-    *   **안개(Fog of War) 그리드**: 미탐사 격자 구역을 반투명 픽셀 그리드로 덮고, 생명체 등록 성공 시 해당 범위의 안개가 걷히는 기믹.
-    *   **My Trail**: 실시간 이동 경로를 은은하게 깜빡이는 네온 사이언 펄스 픽셀 라인으로 연결.
-    *   **생태 발견 핀**: 해금된 개체의 픽셀 아이콘을 지도 상의 GPS 좌표에 꽂아 시각화.
+### Example UI Behavior
+사용자가 `분석 시작`을 누르면 버튼은 `scale: 0.98`로 짧게 반응하고 loading 상태로 전환된다. 분석 요청 중에는 disabled 상태를 유지한다.
+
+### Implementation Notes
+React Native에서는 `Pressable` 기반으로 구현하고 `accessibilityRole="button"`을 지정한다. loading 상태에서는 spinner와 label을 함께 제공해 상태를 숨기지 않는다.
+
+## 2. SurfaceCard
+
+### Component Name
+`SurfaceCard`
+
+### Purpose
+도감 항목, 분석 결과, 지도 핀 상세 정보처럼 하나의 정보 단위를 안정적으로 묶는다.
+
+### Anatomy
+- Container
+- Optional media thumbnail
+- Header row
+- Title
+- Metadata
+- Optional action row
+
+### Variants
+- `default`: 일반 카드
+- `selected`: 선택된 항목
+- `interactive`: press 가능한 카드
+- `compact`: 리스트 밀도가 높은 카드
+
+### States
+- `default`
+- `pressed`
+- `focused`
+- `selected`
+- `disabled`
+
+### Usage Guidelines
+- 카드 내부 padding은 기본 `spacing.md`, compact는 `spacing.sm`를 사용한다.
+- 카드 제목은 1~2줄로 제한하고, 긴 설명은 상세 화면으로 보낸다.
+- 같은 리스트 안에서 카드 radius와 border 두께를 바꾸지 않는다.
+
+### Do / Don't
+- Do: 정보 위계는 title, metadata, action 순서로 만든다.
+- Do: selected 상태는 border와 subtle background tint로 표현한다.
+- Don't: 모든 카드에 그림자와 glow를 동시에 넣지 않는다.
+
+### Design Tokens
+- `color.surface.card`
+- `color.border.default`
+- `color.border.strong`
+- `color.text.primary`
+- `color.text.secondary`
+- `radius.md`
+- `spacing.md`
+- `shadow.none`
+
+### Example UI Behavior
+도감 리스트에서 카드를 누르면 pressed 상태가 120ms 동안 적용되고 상세 bottom sheet가 열린다. 선택된 카드는 `color.border.strong`과 `color.brand.subtle`을 사용한다.
+
+### Implementation Notes
+카드는 기본적으로 shadow를 갖지 않는다. 지도나 카메라 위에 떠 있는 카드만 `shadow.sm`을 허용한다.
+
+## 3. Typography
+
+### Component Name
+`Text`
+
+### Purpose
+Atlas 전역 텍스트의 크기, 굵기, 줄높이, 색상 위계를 통일한다.
+
+### Anatomy
+- Text node
+- Variant style
+- Color role
+- Optional truncation behavior
+
+### Variants
+- `caption`
+- `body`
+- `bodyStrong`
+- `title`
+- `display`
+- `badgeDisplay`
+
+### States
+- `default`
+- `secondary`
+- `tertiary`
+- `danger`
+- `success`
+
+### Usage Guidelines
+- 본문은 시스템 폰트와 `font.size.body`를 사용한다.
+- `badgeDisplay`만 `font.family.display`를 사용할 수 있다.
+- 긴 값은 truncate보다 정보 구조를 재설계하는 것을 우선한다.
+
+### Do / Don't
+- Do: timestamp, 좌표, 파일 타입은 `caption`을 사용한다.
+- Do: 분석 결과명은 `display` 또는 `title`을 사용한다.
+- Don't: 본문 전체에 `pokemon-bw.ttf`를 적용하지 않는다.
+- Don't: 기본 텍스트에 pixel shadow를 적용하지 않는다.
+
+### Design Tokens
+- `font.family.sans`
+- `font.family.display`
+- `font.size.caption`
+- `font.size.body`
+- `font.size.title`
+- `font.size.display`
+- `color.text.primary`
+- `color.text.secondary`
+- `color.text.tertiary`
+
+### Example UI Behavior
+발견 완료 화면의 짧은 라벨 `FOUND`는 `badgeDisplay`를 사용할 수 있지만, 생물명과 설명은 시스템 폰트로 표시한다.
+
+### Implementation Notes
+텍스트 variant와 semantic color를 props로 분리한다. 예: `<Text variant="body" tone="secondary" />`.
+
+## 4. StatusBadge
+
+### Component Name
+`StatusBadge`
+
+### Purpose
+분석 상태, 녹화 상태, 권한 상태, 발견 희귀도 같은 짧은 상태 정보를 표현한다.
+
+### Anatomy
+- Container
+- Optional status dot
+- Label
+
+### Variants
+- `neutral`
+- `info`
+- `success`
+- `warning`
+- `danger`
+- `brand`
+
+### States
+- `default`
+- `active`
+- `disabled`
+
+### Usage Guidelines
+- 상태 label은 1~2단어로 제한한다. 예: `REC`, `분석 중`, `완료`, `권한 필요`
+- `danger`는 실제 오류/녹화 중단 같은 긴급 상태에만 사용한다.
+
+### Do / Don't
+- Do: 녹화 중 `REC`는 status dot과 함께 표시한다.
+- Don't: badge에 긴 설명 문장을 넣지 않는다.
+
+### Design Tokens
+- `radius.full`
+- `spacing.xs`
+- `font.size.caption`
+- `color.semantic.success`
+- `color.semantic.warning`
+- `color.semantic.danger`
+- `color.semantic.info`
+
+### Example UI Behavior
+녹화가 시작되면 상단 HUD에 `REC` badge가 나타나고 status dot만 부드럽게 pulse한다. 전체 badge가 과하게 깜빡이지 않는다.
+
+### Implementation Notes
+상태 색상은 semantic token만 사용한다. 브랜드 컬러로 오류 상태를 표현하지 않는다.
+
+## 5. CaptureControl
+
+### Component Name
+`CaptureControl`
+
+### Purpose
+사진, 비디오, 오디오 캡처의 시작/중지 액션을 제공하는 핵심 미디어 컨트롤이다.
+
+### Anatomy
+- Outer ring
+- Inner action fill
+- Mode indicator
+- Optional progress ring
+
+### Variants
+- `photo`
+- `video`
+- `audio`
+- `stop`
+
+### States
+- `idle`
+- `pressed`
+- `recording`
+- `processing`
+- `disabled`
+
+### Usage Guidelines
+- 캡처 컨트롤은 화면 하단 중앙에 고정한다.
+- video/audio recording 중에는 중지 가능 상태를 명확히 보여준다.
+- progress ring은 녹화 시간 또는 분석 진행률에만 사용한다.
+
+### Do / Don't
+- Do: recording 상태는 `color.semantic.danger`를 제한적으로 사용한다.
+- Do: processing 상태는 `color.brand.primary`와 loading motion을 사용한다.
+- Don't: 캡처 버튼에 다색 그라디언트를 기본 적용하지 않는다.
+
+### Design Tokens
+- `color.brand.primary`
+- `color.semantic.danger`
+- `color.background.subtle`
+- `radius.full`
+- `border.width.strong`
+- `motion.duration.fast`
+
+### Example UI Behavior
+사용자가 오디오 모드에서 컨트롤을 누르면 inner fill이 `recording` 상태로 바뀌고 HUD에 `REC` badge와 waveform이 표시된다.
+
+### Implementation Notes
+햅틱은 캡처 시작, 캡처 중지, 분석 완료처럼 의미 있는 순간에만 사용한다.
+
+## 6. ModeSegmentedControl
+
+### Component Name
+`ModeSegmentedControl`
+
+### Purpose
+`VISUAL`과 `AUDIO` 같은 캡처 모드를 빠르게 전환한다.
+
+### Anatomy
+- Container
+- Segment item
+- Selected indicator
+- Label
+
+### Variants
+- `default`
+- `compact`
+
+### States
+- `default`
+- `selected`
+- `disabled`
+
+### Usage Guidelines
+- segment는 2~4개까지만 사용한다.
+- selected 상태는 background tint와 text weight로 표현한다.
+
+### Do / Don't
+- Do: 모드명은 짧고 예측 가능하게 유지한다.
+- Don't: 탭처럼 화면 전체 navigation에 사용하지 않는다.
+
+### Design Tokens
+- `color.surface.default`
+- `color.brand.subtle`
+- `color.brand.primary`
+- `color.text.primary`
+- `color.text.secondary`
+- `radius.full`
+- `spacing.xs`
+
+### Example UI Behavior
+`AUDIO`를 선택하면 카메라 preview는 어두운 media overlay로 전환되고 waveform이 중심 정보가 된다.
+
+### Implementation Notes
+선택 상태는 controlled value로 관리한다. 화면별 내부 상태와 전역 navigation 상태를 섞지 않는다.
+
+## 7. WaveformMeter
+
+### Component Name
+`WaveformMeter`
+
+### Purpose
+오디오 입력 크기를 실시간으로 보여주되, 분석 도구처럼 차분하고 읽기 쉽게 표현한다.
+
+### Anatomy
+- Meter container
+- Bar group
+- Current level marker
+- Optional dB label
+
+### Variants
+- `compact`
+- `large`
+
+### States
+- `idle`
+- `listening`
+- `clipping`
+- `disabled`
+
+### Usage Guidelines
+- 막대 색상은 기본 brand color를 쓰고, clipping 상태만 warning/danger로 전환한다.
+- 변화는 부드럽게 보간하되 과한 bounce를 사용하지 않는다.
+
+### Do / Don't
+- Do: 오디오 모드에서는 중앙 주요 정보로 배치한다.
+- Don't: 모든 막대에 다색 네온 그라디언트를 적용하지 않는다.
+
+### Design Tokens
+- `color.brand.primary`
+- `color.semantic.warning`
+- `color.semantic.danger`
+- `color.text.secondary`
+- `spacing.2xs`
+- `motion.duration.base`
+
+### Example UI Behavior
+마이크 입력이 커지면 bar height가 `motion.duration.base`로 반응한다. 입력이 clipping에 가까워지면 상단 marker가 warning 색상으로 바뀐다.
+
+### Implementation Notes
+렌더링 빈도를 제어해 배터리와 프레임 저하를 줄인다. 값이 없을 때는 idle skeleton이 아니라 조용한 baseline을 표시한다.
+
+## 8. MapPin
+
+### Component Name
+`MapPin`
+
+### Purpose
+내 위치, 발견 위치, 커뮤니티 핫스팟을 지도 위에서 구분한다.
+
+### Anatomy
+- Pin marker
+- Optional glyph
+- Optional count
+- Selected ring
+
+### Variants
+- `currentLocation`
+- `discovery`
+- `community`
+- `selected`
+
+### States
+- `default`
+- `selected`
+- `clustered`
+- `disabled`
+
+### Usage Guidelines
+- 내 위치는 brand color, 발견 위치는 success/info 계열, 커뮤니티 핫스팟은 neutral surface 위 count로 표현한다.
+- 지도 위 label은 최소화하고 상세 정보는 bottom sheet에서 제공한다.
+
+### Do / Don't
+- Do: selected pin은 ring으로 구분한다.
+- Don't: 핀마다 서로 다른 장식 스타일을 만들지 않는다.
+
+### Design Tokens
+- `color.brand.primary`
+- `color.semantic.success`
+- `color.semantic.info`
+- `color.surface.elevated`
+- `border.width.strong`
+- `radius.full`
+
+### Example UI Behavior
+사용자가 발견 핀을 누르면 pin에 selected ring이 생기고 하단에 `SurfaceCard` 기반 상세 시트가 열린다.
+
+### Implementation Notes
+지도 zoom level에 따라 cluster 표현을 제공한다. pin 크기는 터치 가능 영역 44px 이상을 확보한다.

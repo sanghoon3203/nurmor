@@ -1,59 +1,73 @@
-# 시스템 워크플로우 정의서 (System Workflow)
+# Atlas System Workflow
 
-이 문서는 에코 도감(Eco-Pokedex) 프로젝트의 사용자 시나리오별 미디어 처리, AI 분석, 지도 탐사 연동 및 데이터 상태 흐름(Workflow)을 도식화하고 상세히 정의합니다.
+이 문서는 Atlas의 캡처, AI 분석, 지도 탐사 흐름을 정의한다. UI 표현은 `Calm Field System`을 기준으로 하며, 과한 네온/픽셀 연출은 결과 획득 순간에만 제한한다.
 
----
-
-## 1. 캡처 및 AI 분석 워크플로우
-
-사용자가 생명체를 포착하여 Gemini 3.5 Flash 분석을 받고 도감을 해금하기까지의 미디어 데이터 상태 전이 흐름입니다.
+## 1. Capture And AI Analysis Workflow
 
 ```mermaid
 graph TD
-    A[캡처 버튼 터치] --> B{촬영 모드 설정}
-    B -- VISUAL 모드 --> C1[동영상 촬영 시작 - 마이크 병렬 녹음]
-    B -- AUDIO 모드 --> C2[단독 오디오 레코딩 시작]
-    
-    C1 --> D1[촬영 중 스캔라인 루프 및 REC LED 깜빡임]
-    C2 --> D2[레트로 픽셀 사운드 파형 실시간 Decibel 출력]
-    
-    D1 & D2 --> E[파일 임시 로컬 저장 - mp4 또는 m4a/wav]
-    E --> F[Gemini 3.5 Flash API 병렬 Request 송신]
-    F --> G{species morphology & acoustic pattern 일치 여부}
-    
-    G -- 매칭 성공 --> H[도감 해금 프로세스 실행]
-    G -- 매칭 실패 --> I[에러 HUD 피드백 & 촬영 화면 복귀]
+    A[사용자가 CaptureControl 터치] --> B{캡처 모드}
+    B -- VISUAL --> C1[사진 또는 비디오 촬영]
+    B -- AUDIO --> C2[오디오 단독 녹음]
+
+    C1 --> D1[StatusBadge로 REC/촬영 상태 표시]
+    C2 --> D2[WaveformMeter로 입력 레벨 표시]
+
+    D1 --> E[로컬 임시 파일 저장]
+    D2 --> E
+    E --> F[AI 분석 요청]
+    F --> G{분석 결과}
+
+    G -- 성공 --> H[발견 결과 SurfaceCard 표시]
+    G -- 실패 --> I[오류 원인과 다음 행동 표시]
+    H --> J[Atlas Map에 발견 위치 기록]
 ```
 
----
+### UI Rules
+- recording 상태는 `StatusBadge`와 `CaptureControl` 상태로 표현한다.
+- 분석 중에는 primary action을 loading/disabled로 전환한다.
+- 실패 상태는 `color.semantic.danger`만으로 끝내지 말고 다시 시도할 행동을 함께 제공한다.
 
-## 2. 지역 지도 기반 생태 탐사 워크플로우 (Eco-Map)
-
-사용자의 현재 위치와 도감 수집 상태가 어떻게 탐사 지도(Eco-Map)와 연결되는지를 나타냅니다.
+## 2. Atlas Map Workflow
 
 ```mermaid
 graph TD
-    A[Eco-Map 화면 진입] --> B[GPS 위치 수집 시작]
-    B --> C[현재 내 위치 픽셀 캐릭터로 마킹]
-    C --> D[이동 시 My Trail 실시간 궤적을 픽셀 점선 라인으로 지도 상에 그림]
-    
-    D --> E{현재 GPS 좌표가 미발견 영역 Fog of War 그리드 내부인가?}
-    E -- 예 --> F[반투명 격자 안개 레이어 활성화]
-    E -- 아니오 --> G[해당 구역 지도 선명하게 노출]
-    
-    H[생명체 해금 성공] --> I[해당 생명체가 발견된 GPS 좌표에 커뮤니티 핀 생성]
-    I --> J[해당 좌표 반경 200m 범위 내의 미발견 안개 그리드 제거 해제]
+    A[Atlas Map 진입] --> B[위치 권한 확인]
+    B -- 허용 --> C[현재 위치 표시]
+    B -- 거부 --> D[권한 안내와 수동 탐색 상태 표시]
+
+    C --> E[이동 경로 기록]
+    E --> F[발견 위치 MapPin 표시]
+    F --> G[핀 선택]
+    G --> H[SurfaceCard 기반 bottom sheet 표시]
+
+    I[새 발견 성공] --> J[발견 좌표 저장]
+    J --> K[탐사 overlay 일부 해제]
+    K --> F
 ```
 
----
+### UI Rules
+- 지도 위 텍스트는 최소화한다. 상세 정보는 bottom sheet에서 제공한다.
+- 현재 위치, 발견 위치, 커뮤니티 핫스팟은 `MapPin` variant로 구분한다.
+- 미탐사 영역은 낮은 대비 grid overlay로 표현한다.
 
-## 3. 화면 전환 워크플로우 (12 UI Animation 원칙 연동)
+## 3. Screen Transition Workflow
 
-1.  **진입 대기 (Splash Screen)**:
-    *   앱 최초 실행 시 `pokemon-bw.ttf` 로딩 상태 감시.
-    *   로딩 완료 시 메인 도감 뷰(Dex Grid)로 페이드 아웃 전환.
-2.  **도감 카드 상세 열기 (Detail Transition)**:
-    *   사용자가 목록 내 카드를 터치하면, 카드의 배경색과 테두리가 확대되면서 상세 모달로 변형(Transformation) 전개. (Shared Element Transition 동작)
-3.  **수치 카운팅 및 해금 연출 (Value & Lottie)**:
-    *   도감 등록 시 `success_unlock.json` Lottie 애니메이션이 재생되면서 별가루 효과 오버레이.
-    *   새로 얻은 동식물의 통계치 게이지바가 상승하며 실시간 수치 카운팅 적용.
+### 3.1 App Launch
+- font와 권한 상태를 확인한다.
+- 본문 UI는 시스템 폰트로 즉시 표시하고, display font는 로드 후 특수 영역에만 적용한다.
+
+### 3.2 Capture To Result
+- 캡처 완료 후 분석 pending 상태로 전환한다.
+- 분석 성공 시 결과 bottom sheet를 열고 발견명, 신뢰도, 특징, 위치 metadata를 표시한다.
+
+### 3.3 Result To Map
+- 사용자가 `지도에서 보기`를 선택하면 해당 발견 위치를 중심으로 Atlas Map을 연다.
+- 선택된 `MapPin`에는 selected ring을 표시하고, 상세 bottom sheet를 함께 연다.
+
+## 4. Motion Rules
+
+- press feedback: `motion.duration.fast`, `motion.scale.pressed`
+- 일반 상태 전환: `motion.duration.base`
+- bottom sheet 진입: `motion.duration.slow`
+- REC dot, waveform, overlay 해제 외에는 반복 애니메이션을 사용하지 않는다.

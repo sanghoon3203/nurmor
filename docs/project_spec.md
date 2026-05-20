@@ -1,47 +1,61 @@
-# 레트로 멀티모달 에코 도감 (Eco-Pokedex) 종합 마스터 사양서
+# Atlas Product Specification
 
-본 문서는 프로젝트의 전체 스펙, 요구사항, 아키텍처, 디자인 시스템 규격 및 개발 로드맵을 통합한 마스터 사양서입니다.
+Atlas는 사용자가 주변 생태 환경을 사진, 비디오, 오디오로 기록하고 AI 분석을 통해 관찰 결과를 정리하며 지도 위에서 탐사 이력을 확인하는 React Native 기반 모바일 앱이다.
 
----
+## 1. Product Direction
 
-## 1. 프로젝트 개요 (Project Overview)
-본 앱은 사용자가 주변 생태 환경(동식물, 조류, 곤충 등)을 카메라와 마이크로 포착하여 AI 분석(Gemini 3.5 Flash)을 거쳐 능력치가 부여된 게임 스타일 카드로 도감에 등록하고, 자신의 탐험 기록 및 타인과의 발견 데이터를 지도 위에서 공유하는 레트로 픽셀 아트 스타일의 React Native 하이브리드 앱입니다.
+Atlas는 게임처럼 과장된 도감이 아니라, 자연 관찰과 위치 기반 탐사를 위한 차분하고 신뢰 가능한 기록 도구를 목표로 한다. 기존의 캡처, AI 분석, 지도 탐사 컨셉은 유지하되 시각 시스템은 `Calm Field System`으로 정리한다.
 
----
+## 2. Core Requirements
 
-## 2. 핵심 요구사항 (Key Requirements)
+### 2.1 Capture Suite
+- `VISUAL` 모드: 사진 및 비디오 촬영. 비디오 촬영 시 주변 음성을 함께 수집한다.
+- `AUDIO` 모드: 카메라 preview 없이 소리만 단독 녹음한다.
+- recording 상태는 `StatusBadge`와 `CaptureControl` 상태 변화로 표현한다.
+- 실시간 오디오 입력은 `WaveformMeter`로 표시한다.
 
-### 2.1 미디어 및 캡처 (Capture Suite)
-*   **Visual 모드**: 사진 및 비디오 촬영 기능. 비디오 캡처 시 주변 음성이 병렬로 수집됨.
-*   **Audio 모드**: 렌즈가 차단된 어두운 화면 혹은 레트로 정적 비주얼 위에서 마이크를 통한 소리 단독 녹음 기능.
-*   **레트로 HUD**: 상하로 루핑하는 네온 그린 레이저 스캔라인과 실시간 깜빡이는 녹화 표시등(`REC`).
-*   **실시간 데시벨 파형**: 소리 입력 크기(dB)에 감속 Easing이 적용되어 실시간으로 춤추는 그라디언트 픽셀 이퀄라이저.
+### 2.2 AI Analysis
+- 촬영/녹음 파일을 AI 분석 요청으로 전달한다.
+- 분석 중에는 중복 제출을 막고 진행 상태를 명확히 표시한다.
+- 분석 성공 시 발견 결과, 신뢰도, 주요 특징, 위치 metadata를 보여준다.
+- 분석 실패 시 원인과 다음 행동을 함께 제공한다.
 
-### 2.2 Antigravity 프리미엄 디자인 시스템
-*   **그라디언트 스키마**: 
-    *   `Antigravity Glow`: Neon Cyan (`#00f0ff`) ➔ Purple (`#8a2be2`) ➔ Pink (`#ff007f`)
-    *   `Emerald Biosphere`: Radiant Emerald (`#00ff66`) ➔ Electric Cyan (`#00f0ff`)
-*   **글래스모피즘 (Glassmorphic)**: `Deep Space Black` (`#08080c`) 배경 위에서 미세한 투명도와 블러 처리가 들어간 반투명 카드 형태 사용.
-*   **픽셀 경계선**: 모서리가 각지고 칼처럼 잘려진 섀도우 오프셋을 갖는 픽셀 더블 보더(`pixelBorderStyles`).
-*   **커스텀 폰트**: 다운로드 디렉토리에 위치한 레트로 폰트 `pokemon-bw.ttf`를 앱 전역에 매핑.
+### 2.3 Atlas Map
+- 현재 위치, 이동 경로, 발견 위치를 지도 위에 표시한다.
+- 미탐사 영역은 과한 게임식 Fog of War보다 낮은 대비의 grid overlay로 표현한다.
+- 발견 위치와 커뮤니티 핫스팟은 `MapPin` variant로 구분한다.
 
-### 2.3 지역 지도 기반 생태 탐사 (Eco-Map)
-*   **미발견 안개 지역 (Fog of War)**: 미탐사 격자 구역을 반투명 픽셀 그리드로 덮고, 생명체 등록 성공 시 해당 범위의 안개가 걷히는 기믹.
-*   **실시간 동선 기록 (My Trail)**: GPS 연동으로 궤적을 픽셀 점선 라인으로 시각화.
-*   **크라우드 소싱 도감 핀**: 다른 사용자가 수집한 정보(핫스팟)를 그라디언트 서클 및 아이콘 핀으로 노출.
+## 3. Design System Summary
 
----
+Atlas는 다음 foundation을 사용한다.
 
-## 3. 화면 전환 및 인터페이스 애니메이션 (12 UI Principles & Toss Style)
-1.  **스프링 가감속(Easing)**: 모든 버튼과 카드는 터치 시 누르는 힘에 반발하듯 `scale`이 줄어들었다 튕겨오르는 리바운드 애니메이션 지원.
-2.  **공유 요소 전환(Shared Element Transition)**: 도감 리스트에서 특정 카드를 누르면 상세 팝업 카드로 경계면과 내부 이미지가 부드럽게 팽창(Morphing) 및 전개.
-3.  **수치 카운팅(Value Change)**: AI 분석을 마친 후 공격력/방어력 스태츠 바가 채워질 때 토스 금융앱 수치 증가처럼 실시간으로 숫자가 올라가는 모션 구현.
+- Color: 어두운 neutral surface와 teal 계열 brand color
+- Typography: 시스템 폰트 기반의 높은 가독성
+- Spacing: 4/8 기반 scale
+- Radius: 기본 8px, modal/sheet 12px
+- Shadow: 카드에는 기본 shadow 없음, floating panel에만 낮은 elevation
+- Motion: 빠르고 조용한 상태 전환
 
----
+기존 `pokemon-bw.ttf`는 본문 폰트가 아니라 발견 완료 같은 짧은 특수 연출에만 사용한다.
 
-## 4. 로드맵 및 태스크 (Roadmap)
-*   **Day 1**: 프로젝트 초기화 및 에셋 복사, 폰트 적용.
-*   **Day 2**: Antigravity 디자인 시스템 공통 컴포넌트 (`PixelButton`, `PixelCard`, `Typography`) 구축.
-*   **Day 3**: 카메라 및 오디오 단독 레코딩 모드 HUD 뷰, 데시벨 파형기 구현.
-*   **Day 4**: 지도 모듈 설치, 안개 그리드 차단 맵, GPS 경로 펄스 라인 연동.
-*   **Day 5**: Gemini AI 병렬 API 결합, 다국어(KO/JA) 적용 및 최종 빌드 검증.
+## 4. Primary Components
+
+- `Button`
+- `SurfaceCard`
+- `Text`
+- `StatusBadge`
+- `CaptureControl`
+- `ModeSegmentedControl`
+- `WaveformMeter`
+- `MapPin`
+
+컴포넌트 상세는 [components.md](./components.md)를 따른다.
+
+## 5. Roadmap
+
+- Day 1: Expo/React Native 프로젝트 구조와 미디어 권한 설정
+- Day 2: Atlas design tokens와 기본 primitives 구현
+- Day 3: Capture Suite와 `WaveformMeter` 구현
+- Day 4: AI 분석 요청/결과 상태 UI 구현
+- Day 5: Atlas Map, discovery pin, 탐사 overlay 구현
+- Day 6: 접근성, 오류 상태, 성능 검증
