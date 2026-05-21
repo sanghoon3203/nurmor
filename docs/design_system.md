@@ -1,6 +1,6 @@
 # Atlas Design System Specification
 
-Atlas의 디자인 시스템은 생태 관찰, 미디어 캡처, AI 분석, 지도 기반 탐사를 하나의 신뢰 가능한 제품 경험으로 묶기 위한 기준이다. 기존의 캡처, AI 분석, 지도 탐사 기능 컨셉은 유지하되, 과한 네온/픽셀/글래스모피즘 표현은 줄이고 `Calm Field System` 방향으로 재정의한다.
+Atlas의 디자인 시스템은 생태 관찰, 미디어 캡처, Gemini 분석, 지도 셀 기반 도감화를 하나의 제품 경험으로 묶기 위한 기준이다. 시각 방향은 `Habitat Bloom`이다. 사용자가 실제 위치에서 기록을 심을수록 지도 위 서식지 셀이 밝아지고 피어나는 느낌을 만든다.
 
 ## 1. Design Principles
 
@@ -8,13 +8,16 @@ Atlas의 디자인 시스템은 생태 관찰, 미디어 캡처, AI 분석, 지�
 정보 구조가 장식보다 우선한다. 사용자는 현재 상태, 다음 행동, 분석 결과를 한눈에 이해할 수 있어야 한다.
 
 ### 1.2 Grounded
-자연, 위치, 관찰이라는 제품 맥락을 차분한 색상과 안정적인 표면 구조로 표현한다. 게임적 장식은 핵심 순간에만 제한적으로 사용한다.
+자연, 위치, 관찰이라는 제품 맥락을 밝은 필드 색상과 안정적인 표면 구조로 표현한다. 게임적 보상감은 셀 개화, 기록 심기, 도감 등록 순간에만 제한적으로 사용한다.
 
 ### 1.3 Precise
 좌표, 녹음 상태, 분석 진행률, 발견 결과처럼 정확성이 중요한 정보는 명확한 레이블, 상태 색상, 일관된 spacing으로 표현한다.
 
 ### 1.4 Quiet Premium
-고채도 네온 그라디언트와 강한 그림자 대신 절제된 대비, 얇은 border, 낮은 elevation을 사용한다.
+고채도 네온 그라디언트와 강한 그림자 대신 밝은 필드 표면, 따뜻한 종이 시트, 얇은 border, 낮은 elevation을 사용한다.
+
+### 1.5 Playful Progress
+땅따먹기식 재미는 `점령`이 아니라 `서식지 밝히기`, `기록 심기`, `개화도`로 표현한다. 진행 상태는 지도 셀의 색, bloom ring, record seed로 보여준다.
 
 ## 2. Design Tokens
 
@@ -22,29 +25,29 @@ Atlas의 디자인 시스템은 생태 관찰, 미디어 캡처, AI 분석, 지�
 
 | token name | value | usage | example |
 |---|---:|---|---|
-| `color.background.default` | `#0B0F14` | 앱 기본 배경 | 전체 화면 |
-| `color.background.subtle` | `#111820` | 지도/카메라 위 보조 배경 | 하단 컨트롤 영역 |
-| `color.surface.default` | `#151C24` | 기본 패널 | 설정 패널 |
-| `color.surface.card` | `#18212B` | 카드 표면 | 도감 카드 |
-| `color.surface.elevated` | `#1D2732` | 모달, 플로팅 패널 | 분석 결과 시트 |
-| `color.border.default` | `#2A3542` | 기본 경계선 | 카드, 입력 필드 |
-| `color.border.strong` | `#3A4857` | 강조 경계선 | 선택된 카드 |
-| `color.text.primary` | `#F3F7FA` | 주요 텍스트 | 제목, 핵심 수치 |
-| `color.text.secondary` | `#AAB6C3` | 보조 텍스트 | 설명, metadata |
-| `color.text.tertiary` | `#718092` | 낮은 위계 텍스트 | placeholder, timestamp |
-| `color.brand.primary` | `#4CC9C0` | 주요 액션, 선택 상태 | Primary button |
-| `color.brand.primaryHover` | `#6EDBD3` | press/hover 강조 | 버튼 눌림 |
-| `color.brand.subtle` | `#173A3B` | 브랜드 tint 배경 | 선택 chip |
+| `color.background.default` | `#F3F5E8` | 앱 기본 필드 배경 | 전체 화면 |
+| `color.background.subtle` | `#DDEBCF` | 지도/캡처 보조 배경 | 셀 overlay |
+| `color.surface.default` | `#F6E7C8` | 기본 기록 시트 | 분석 결과 |
+| `color.surface.card` | `#FFF4D8` | 카드 표면 | 도감 카드 |
+| `color.surface.elevated` | `#F8EDCF` | 모달, 플로팅 패널 | 셀 상세 시트 |
+| `color.border.default` | `#D8C79F` | 기본 경계선 | 카드, 입력 필드 |
+| `color.border.strong` | `#8E9F63` | 강조 경계선 | 선택된 셀 |
+| `color.text.primary` | `#243027` | 주요 텍스트 | 제목, 핵심 수치 |
+| `color.text.secondary` | `#68715F` | 보조 텍스트 | 설명, metadata |
+| `color.text.tertiary` | `#8B927D` | 낮은 위계 텍스트 | placeholder, timestamp |
+| `color.brand.primary` | `#5F9B50` | 주요 액션, 개화 진행 | Primary button |
+| `color.brand.primaryHover` | `#76B864` | press/hover 강조 | 버튼 눌림 |
+| `color.brand.subtle` | `#C7E6A3` | 브랜드 tint 배경 | 피어난 셀 |
 | `color.semantic.success` | `#7BCB8F` | 성공 상태 | 분석 완료 |
 | `color.semantic.warning` | `#F2B866` | 주의 상태 | 권한 필요 |
 | `color.semantic.danger` | `#F07D7D` | 오류/파괴 액션 | 분석 실패 |
-| `color.semantic.info` | `#82B7FF` | 정보 상태 | 위치 업데이트 |
+| `color.semantic.info` | `#7DBCC8` | 정보 상태 | 위치/AI metadata |
 | `color.overlay.scrim` | `#00000099` | 모달 뒤 dim | bottom sheet |
 
 사용 규칙:
-- 브랜드 컬러는 주요 CTA, 현재 위치, 활성 분석 상태에만 사용한다.
+- 브랜드 컬러는 주요 CTA, 개화 진행, 저장 가능한 기록 상태에만 사용한다.
 - 성공/경고/오류를 브랜드 컬러로 대체하지 않는다.
-- 그라디언트는 기본 UI에 사용하지 않는다. 발견 완료, 분석 완료 같은 순간적 피드백에만 제한한다.
+- 그라디언트는 기본 UI에 사용하지 않는다. 기록 심기, 셀 개화 같은 순간적 피드백에만 제한한다.
 
 ### 2.2 Typography Tokens
 
@@ -137,26 +140,26 @@ Atlas의 디자인 시스템은 생태 관찰, 미디어 캡처, AI 분석, 지�
 
 사용 규칙:
 - 인터랙션은 빠르고 조용해야 한다. 모든 요소가 튀는 spring animation을 쓰지 않는다.
-- 캡처 버튼, 분석 완료, 카드 상세 전환처럼 피드백이 중요한 순간에만 더 풍부한 motion을 사용한다.
+- 캡처 버튼, 기록 심기, 셀 개화, 카드 상세 전환처럼 피드백이 중요한 순간에만 더 풍부한 motion을 사용한다.
 
 ## 3. Surface Rules
 
 ### 3.1 Default Surface
-기본 UI는 `color.surface.default` 배경, `border.width.default`, `radius.md` 조합을 사용한다.
+기록/도감 UI는 `color.surface.default` 배경, `border.width.default`, `radius.md` 조합을 사용한다.
 
 ### 3.2 Elevated Surface
-모달, bottom sheet, 지도 위 플로팅 패널은 `color.surface.elevated`, `shadow.md`, `radius.lg`를 사용한다.
+모달, bottom sheet, 셀 상세 패널은 `color.surface.elevated`, `shadow.md`, `radius.lg`를 사용한다.
 
 ### 3.3 Media Overlay Surface
-카메라/지도 위 오버레이는 배경 콘텐츠를 가리지 않도록 `color.background.subtle`에 88~94% opacity를 사용한다. 텍스트 대비는 항상 WCAG AA 수준을 목표로 한다.
+카메라/지도 위 오버레이는 배경 콘텐츠를 가리지 않도록 `color.background.subtle`에 88~94% opacity를 사용한다. 지도 셀은 개화도 상태가 읽히도록 색 대비를 유지하되, 전략 게임 지도처럼 강한 소유 경계를 만들지 않는다. 텍스트 대비는 항상 WCAG AA 수준을 목표로 한다.
 
 ## 4. Legacy Style Policy
 
 이전 스타일의 네온, 픽셀 보더, 강한 텍스트 섀도우는 Atlas의 기본 디자인 시스템에서 제거한다. 단, 다음 상황에서는 제한적으로 사용할 수 있다.
 
-- 발견 완료 또는 rare finding 연출
+- 기록 심기, 셀 개화, rare finding 연출
 - `font.family.display`가 필요한 짧은 배지/타이틀
-- 지도 안개 해제, 분석 완료처럼 사용자가 결과를 획득한 순간
+- 셀 개화, 분석 완료처럼 사용자가 의미 있는 결과를 얻은 순간
 
 금지:
 - 모든 카드에 네온 그라디언트 적용

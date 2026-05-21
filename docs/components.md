@@ -1,6 +1,6 @@
 # Atlas Component Specification
 
-이 문서는 Atlas의 공통 컴포넌트와 주요 화면 컴포넌트를 정의한다. 모든 컴포넌트는 [design_system.md](./design_system.md)의 `Calm Field System` 토큰을 기준으로 구현한다.
+이 문서는 Atlas의 공통 컴포넌트와 주요 화면 컴포넌트를 정의한다. 모든 컴포넌트는 [design_system.md](./design_system.md)의 `Habitat Bloom` 토큰을 기준으로 구현한다.
 
 ## 1. Button
 
@@ -308,7 +308,7 @@ Atlas 전역 텍스트의 크기, 굵기, 줄높이, 색상 위계를 통일한�
 - `spacing.xs`
 
 ### Example UI Behavior
-`AUDIO`를 선택하면 카메라 preview는 어두운 media overlay로 전환되고 waveform이 중심 정보가 된다.
+`AUDIO`를 선택하면 카메라 preview는 밝은 field surface로 전환되고 waveform이 중심 정보가 된다.
 
 ### Implementation Notes
 선택 상태는 controlled value로 관리한다. 화면별 내부 상태와 전역 navigation 상태를 섞지 않는다.
@@ -359,50 +359,111 @@ Atlas 전역 텍스트의 크기, 굵기, 줄높이, 색상 위계를 통일한�
 ### Implementation Notes
 렌더링 빈도를 제어해 배터리와 프레임 저하를 줄인다. 값이 없을 때는 idle skeleton이 아니라 조용한 baseline을 표시한다.
 
-## 8. MapPin
+## 8. HabitatCell
 
 ### Component Name
-`MapPin`
+`HabitatCell`
 
 ### Purpose
-내 위치, 발견 위치, 커뮤니티 핫스팟을 지도 위에서 구분한다.
+지도 위 셀 단위 생태 데이터베이스의 상태와 개화도를 표현한다.
 
 ### Anatomy
-- Pin marker
-- Optional glyph
+- Cell shape
+- Bloom fill
+- Optional record seed
 - Optional count
-- Selected ring
+- Selected outline
 
 ### Variants
-- `currentLocation`
-- `discovery`
-- `community`
+- `unobserved`
+- `visited`
+- `seeded`
+- `growing`
+- `bloomed`
 - `selected`
 
 ### States
 - `default`
 - `selected`
-- `clustered`
+- `loading`
 - `disabled`
 
 ### Usage Guidelines
-- 내 위치는 brand color, 발견 위치는 success/info 계열, 커뮤니티 핫스팟은 neutral surface 위 count로 표현한다.
-- 지도 위 label은 최소화하고 상세 정보는 bottom sheet에서 제공한다.
+- 셀은 지도 위 주요 정보 구조다.
+- 색상은 개화도와 기록 밀도를 표현하되 전략 게임 지도처럼 보이지 않게 낮은 대비를 유지한다.
+- 지도 위 label은 최소화하고 상세 정보는 `FieldRevealSheet`에서 제공한다.
 
 ### Do / Don't
-- Do: selected pin은 ring으로 구분한다.
-- Don't: 핀마다 서로 다른 장식 스타일을 만들지 않는다.
+- Do: selected cell은 outline과 bloom ring으로 구분한다.
+- Do: 첫 기록이 심어진 셀은 작은 seed marker를 표시한다.
+- Don't: 점령, 영토, 전투 UI처럼 보이는 강한 경계와 색면을 사용하지 않는다.
 
 ### Design Tokens
 - `color.brand.primary`
+- `color.brand.subtle`
 - `color.semantic.success`
 - `color.semantic.info`
 - `color.surface.elevated`
 - `border.width.strong`
-- `radius.full`
+- `motion.duration.base`
 
 ### Example UI Behavior
-사용자가 발견 핀을 누르면 pin에 selected ring이 생기고 하단에 `SurfaceCard` 기반 상세 시트가 열린다.
+사용자가 셀을 누르면 selected outline이 생기고 하단에 `FieldRevealSheet`가 열린다. 새 기록이 등록되면 seed marker가 나타나고 bloom ring이 짧게 확장된다.
 
 ### Implementation Notes
-지도 zoom level에 따라 cluster 표현을 제공한다. pin 크기는 터치 가능 영역 44px 이상을 확보한다.
+셀 터치 가능 영역은 44px 이상 확보한다. 공개 지도에서는 정확 좌표 대신 셀 centroid 또는 흐린 위치를 사용한다.
+
+## 9. CodexEntryCard
+
+### Component Name
+`CodexEntryCard`
+
+### Purpose
+셀에 심어진 관찰 기록을 도감 항목으로 보여준다.
+
+### Anatomy
+- Warm paper container
+- Estimated species name
+- Confidence badge
+- Media type indicator
+- Habitat cell label
+- Contributor display
+- Timestamp
+
+### Variants
+- `default`
+- `compact`
+- `selected`
+- `needsReview`
+
+### States
+- `default`
+- `pressed`
+- `selected`
+- `loading`
+
+### Usage Guidelines
+- 생물명은 확정이 아니라 추정으로 표시한다. 예: `노랑나비로 추정`.
+- 기여자 이름은 공개 설정이 허용된 경우에만 표시한다.
+- 같은 셀의 기존 항목과 중복 가능성이 있으면 `기존 항목에 추가` 행동을 제공한다.
+
+### Do / Don't
+- Do: 신뢰도, 관찰 근거, 위치 셀을 함께 보여준다.
+- Do: 낮은 신뢰도는 `미확인 생물` 저장을 우선 제안한다.
+- Don't: AI 분석 결과를 생물학적 확정 판정처럼 표현하지 않는다.
+
+### Design Tokens
+- `color.surface.card`
+- `color.border.default`
+- `color.text.primary`
+- `color.text.secondary`
+- `color.brand.primary`
+- `color.semantic.warning`
+- `radius.md`
+- `spacing.md`
+
+### Example UI Behavior
+사용자가 분석 후보를 선택하면 `CodexEntryCard` preview가 생성된다. `지도에 심기`를 누르면 카드가 현재 셀에 연결되고 셀 개화도가 갱신된다.
+
+### Implementation Notes
+카드는 `ObservationRecord`와 `CodexEntry`를 구분해서 표현해야 한다. 하나의 도감 항목 안에 여러 관찰 기록이 포함될 수 있다.
