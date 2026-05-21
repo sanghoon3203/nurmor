@@ -13,6 +13,31 @@ This app now has the first connected mobile shell:
 - Foreground location permission
 - Map home with user location, cell polygons, cell markers, and cell summary panel
 
+## Native App Identity
+
+Atlas is an Expo native mobile app. EAS/native builds will use these app identifiers:
+
+```text
+iOS bundle ID: com.sanghoon.atlas
+Android package name: com.sanghoon.atlas
+```
+
+Create both apps in Firebase Console with those exact identifiers:
+
+```text
+Firebase Console -> Project settings -> Your apps -> iOS+
+Firebase Console -> Project settings -> Your apps -> Android
+```
+
+The current implementation signs in through Firebase Auth REST, so it still needs the Firebase Web client config in `mobile/.env`. Native Firebase config files are not required for the current REST-auth path. If we later switch to native Firebase SDKs or add Analytics/Crashlytics, then we should add:
+
+```text
+GoogleService-Info.plist
+google-services.json
+```
+
+and wire them into the Expo native build config.
+
 Next implementation target:
 
 ```text

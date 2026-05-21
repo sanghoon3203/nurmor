@@ -13,9 +13,11 @@
       "backgroundColor": "#f6fbf4"
     },
     "ios": {
+      "bundleIdentifier": "com.sanghoon.atlas",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.sanghoon.atlas",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f6fbf4"
