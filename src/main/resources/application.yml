@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: atlas-api
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  profiles:
+    default: local
+  datasource:
+    url: jdbc:h2:mem:atlas;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+atlas:
+  cells:
+    size-degrees: 0.0025
+  gemini:
+    model: gemini-3-flash-preview
+  firebase:
+    storage-bucket: ${FIREBASE_STORAGE_BUCKET:}
+    service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: gcp
+  datasource:
+    url: ${DB_JDBC_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+atlas:
+  gemini:
+    api-key: ${GEMINI_API_KEY}
+  firebase:
+    storage-bucket: ${FIREBASE_STORAGE_BUCKET}
+    service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH:}

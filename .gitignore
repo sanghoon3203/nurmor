@@ -1,0 +1,10 @@
+.DS_Store
+target/
+.mvn/wrapper/maven-wrapper.jar
+*.log
+.env
+.env.*
+!.env.example
+*firebase-adminsdk*.json
+*service-account*.json
+atlas-dex-*.json
