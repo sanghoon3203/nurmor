@@ -18,8 +18,8 @@ This app now has the first connected mobile shell:
 Atlas is an Expo native mobile app. EAS/native builds will use these app identifiers:
 
 ```text
-iOS bundle ID: com.sanghoon.atlas
-Android package name: com.sanghoon.atlas
+iOS bundle ID: com.team3.atlas
+Android package name: com.team3.atlas
 ```
 
 Create both apps in Firebase Console with those exact identifiers:
