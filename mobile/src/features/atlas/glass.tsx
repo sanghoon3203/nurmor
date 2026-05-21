@@ -15,9 +15,9 @@ type GlassProps = {
 export function GradientScreen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[styles.gradientScreen, style]}>
-      <View style={styles.topWash} />
-      <View style={styles.bloomWash} />
-      <View style={styles.skyWash} />
+      <View style={styles.topMist} />
+      <View style={styles.fieldVeil} />
+      <View style={styles.waterVeil} />
       {children}
     </View>
   );
@@ -114,44 +114,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.field,
   },
-  topWash: {
+  topMist: {
     position: 'absolute',
-    left: -30,
-    right: -30,
-    top: -80,
-    height: 310,
-    borderBottomLeftRadius: 160,
-    borderBottomRightRadius: 160,
-    backgroundColor: 'rgba(217, 240, 239, 0.7)',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 340,
+    backgroundColor: 'rgba(217, 240, 239, 0.56)',
   },
-  bloomWash: {
+  fieldVeil: {
     position: 'absolute',
-    right: -90,
-    top: 80,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: glass.tintBloom,
+    left: 0,
+    right: 0,
+    top: 220,
+    height: 360,
+    backgroundColor: 'rgba(223, 241, 207, 0.5)',
   },
-  skyWash: {
+  waterVeil: {
     position: 'absolute',
-    left: -110,
-    bottom: 40,
-    width: 260,
+    left: 0,
+    right: 0,
+    bottom: 0,
     height: 260,
-    borderRadius: 130,
-    backgroundColor: glass.tintSky,
+    backgroundColor: 'rgba(205, 238, 245, 0.38)',
   },
   panelShell: {
     overflow: 'hidden',
-    borderRadius: radii.medium,
+    borderRadius: radii.large,
     borderWidth: 1,
     borderColor: glass.border,
     backgroundColor: glass.surface,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.16,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.13,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
   },
   panelFallback: {
     ...StyleSheet.absoluteFillObject,
@@ -175,7 +171,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardShell: {
-    borderRadius: radii.medium,
+    borderRadius: radii.large,
   },
   cardContent: {
     gap: 10,

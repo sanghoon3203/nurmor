@@ -26,13 +26,15 @@ export const colors = {
 } as const;
 
 export const glass = {
-  surface: 'rgba(255, 255, 255, 0.68)',
-  surfaceStrong: 'rgba(255, 255, 255, 0.82)',
-  border: 'rgba(255, 255, 255, 0.72)',
-  shadow: 'rgba(22, 63, 45, 0.18)',
-  tintGreen: 'rgba(223, 241, 207, 0.68)',
-  tintSky: 'rgba(205, 238, 245, 0.7)',
-  tintBloom: 'rgba(255, 207, 90, 0.25)',
+  surface: 'rgba(255, 255, 255, 0.7)',
+  surfaceStrong: 'rgba(255, 255, 255, 0.86)',
+  surfaceChrome: 'rgba(255, 255, 255, 0.78)',
+  border: 'rgba(255, 255, 255, 0.76)',
+  hairline: 'rgba(22, 63, 45, 0.1)',
+  shadow: 'rgba(22, 63, 45, 0.16)',
+  tintGreen: 'rgba(223, 241, 207, 0.7)',
+  tintSky: 'rgba(205, 238, 245, 0.68)',
+  tintBloom: 'rgba(255, 207, 90, 0.22)',
 } as const;
 
 export const motion = {
@@ -51,5 +53,7 @@ export const bloomColors: Record<string, string> = {
 export const radii = {
   small: 6,
   medium: 8,
+  large: 18,
+  sheet: 28,
   round: 999,
 } as const;

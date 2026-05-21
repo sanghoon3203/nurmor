@@ -6,10 +6,10 @@ import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassPanel, RevealView } from '../atlas/glass';
-import { CellGlyph, ProgressBar, StatusBadge } from '../atlas/ui';
+import { ProgressBar } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
 import { HabitatCell, getHealth, getNearbyHabitatCells } from '../../services/api';
-import { bloomColors, colors, radii } from '../../theme/tokens';
+import { bloomColors, colors, glass, radii } from '../../theme/tokens';
 import { BackendState, LocationState } from './types';
 
 const fallbackRegion: Region = {
@@ -65,13 +65,6 @@ function demoCells(region: Region): HabitatCell[] {
     speciesCount: item.state === 'UNOBSERVED' ? 0 : Math.max(1, index),
     contributorCount: item.state === 'UNOBSERVED' ? 0 : index + 1,
   }));
-}
-
-function shortCellKey(cellKey: string) {
-  if (cellKey.length <= 24) {
-    return cellKey;
-  }
-  return `${cellKey.slice(0, 12)}...${cellKey.slice(-8)}`;
 }
 
 function locationCopy(locationState: LocationState) {
@@ -214,7 +207,7 @@ export function MapHomeScreen() {
             onPress={() => setSelectedCellId(cell.id)}
           >
             <View style={[styles.cellDot, { backgroundColor: bloomColors[cell.bloomState] ?? colors.sprout }]}>
-              <Text style={styles.cellDotText}>{cell.bloomState === 'BLOOMED' ? '꽃' : cell.observationCount}</Text>
+              <Text style={styles.cellDotText}>{cell.observationCount || ''}</Text>
             </View>
           </Marker>
         ))}
@@ -222,55 +215,56 @@ export function MapHomeScreen() {
 
       <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
         <View style={styles.topCluster}>
-          <GlassPanel style={styles.topBar} contentStyle={styles.topBarContent}>
-            <Pressable accessibilityRole="button" style={styles.iconButton}>
-              <Text style={styles.iconText}>☰</Text>
-            </Pressable>
+          <View style={styles.titleRow}>
             <View style={styles.titleGroup}>
               <Text style={styles.title}>내 생태 지도</Text>
-              <Text style={styles.subtitle}>오늘 밝힌 구역 {visibleCellCount}</Text>
             </View>
-            <Pressable accessibilityRole="button" style={styles.iconButton}>
-              <Text style={styles.iconText}>알림</Text>
+            <Pressable accessibilityLabel="알림" accessibilityRole="button" style={styles.iconButton}>
+              <Text style={styles.iconText}>○</Text>
             </Pressable>
-          </GlassPanel>
-
-          <View style={styles.statusRail}>
-            <StatusBadge label={auth.status === 'authenticated' ? '로그인됨' : '로그인 확인'} />
-            <StatusBadge label={apiReady ? 'Atlas API 연결' : backendState.status === 'loading' ? 'API 확인 중' : 'API 미리보기'} tone="blue" />
-            <StatusBadge label={locationCopy(locationState)} tone="yellow" />
           </View>
+
+          <GlassPanel style={styles.statusCapsule} contentStyle={styles.statusCapsuleContent}>
+            <StatusChip symbol="☼" label={`오늘 밝힌 구역 ${visibleCellCount}`} tone="yellow" />
+            <StatusChip symbol="⌖" label={locationCopy(locationState)} tone="blue" />
+            <StatusChip symbol="▱" label={apiReady ? 'Atlas API 연결' : backendState.status === 'loading' ? 'API 확인 중' : 'API 미리보기'} tone="green" />
+          </GlassPanel>
+        </View>
+
+        <View style={styles.mapControls}>
+          <MapControl symbol="⌖" label="현재 위치" />
+          <MapControl symbol="▱" label="지도 레이어" />
         </View>
 
         <RevealView>
         <GlassPanel style={styles.bottomCard} contentStyle={styles.bottomCardContent}>
+          <View style={styles.sheetHandle} />
           <View style={styles.cardTopRow}>
-            <CellGlyph state={selectedCell.bloomState} selected />
+            <View style={styles.leafMedallion}>
+              <View style={styles.leafIcon} />
+              <View style={styles.leafStem} />
+            </View>
             <View style={styles.cellTextGroup}>
               <Text style={styles.cardTitle}>주변 서식지를 더 밝혀보세요</Text>
               <Text style={styles.cardBody}>
-                사진·영상·소리를 기록하면 Gemini가 생물 후보를 읽고, 확인 후 이 셀의 도감에 심습니다.
+                기록을 심을수록 더 많은 생명이 이 지도를 통해 연결됩니다.
               </Text>
             </View>
+            <BotanicalAccent />
           </View>
 
           <View style={styles.selectedCellBox}>
             <View style={styles.selectedCellHeader}>
-              <Text style={styles.selectedCellTitle}>{shortCellKey(selectedCell.cellKey)}</Text>
-              <Text style={styles.selectedCellState}>{selectedCell.bloomState}</Text>
+              <Text style={styles.selectedCellTitle}>개화도 {Math.max(selectedCell.bloomScore, 12)}%</Text>
+              <View style={styles.bloomDot} />
             </View>
             <ProgressBar value={Math.max(selectedCell.bloomScore, 12)} />
-            <View style={styles.metricRow}>
-              <Metric label="기록" value={String(selectedCell.observationCount || discoveredCount)} />
-              <Metric label="종" value={String(selectedCell.speciesCount)} />
-              <Metric label="기여자" value={String(selectedCell.contributorCount)} />
-            </View>
           </View>
 
-          <View style={styles.discoveryRail}>
-            <MiniDiscovery title="노랑나비" distance="1.2km" />
-            <MiniDiscovery title="개망초" distance="860m" />
-            <MiniDiscovery title="직박구리" distance="3.1km" />
+          <View style={styles.metricRow}>
+            <Metric symbol="◜" label="기록" value={`${selectedCell.observationCount || discoveredCount}개`} />
+            <Metric symbol="⌁" label="종" value={`${selectedCell.speciesCount}개`} />
+            <Metric symbol="○○" label="기여자" value={`${selectedCell.contributorCount}명`} />
           </View>
 
           {auth.status === 'missing-config' ? (
@@ -313,20 +307,43 @@ export function MapHomeScreen() {
   );
 }
 
-function MiniDiscovery({ title, distance }: { title: string; distance: string }) {
+function StatusChip({ symbol, label, tone }: { symbol: string; label: string; tone: 'green' | 'blue' | 'yellow' }) {
+  const toneStyle = tone === 'blue' ? styles.statusSymbolBlue : tone === 'yellow' ? styles.statusSymbolYellow : styles.statusSymbolGreen;
   return (
-    <View style={styles.miniDiscovery}>
-      <Text style={styles.miniDiscoveryTitle}>{title}</Text>
-      <Text style={styles.miniDiscoveryBody}>{distance} 근처</Text>
+    <View style={styles.statusChip}>
+      <Text style={[styles.statusSymbol, toneStyle]}>{symbol}</Text>
+      <Text style={styles.statusChipText} numberOfLines={1}>
+        {label}
+      </Text>
+      {tone !== 'yellow' ? <View style={[styles.statusDot, tone === 'blue' ? styles.statusDotBlue : styles.statusDotGreen]} /> : null}
     </View>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function MapControl({ symbol, label }: { symbol: string; label: string }) {
+  return (
+    <Pressable accessibilityLabel={label} accessibilityRole="button" style={styles.mapControl}>
+      <Text style={styles.mapControlText}>{symbol}</Text>
+    </Pressable>
+  );
+}
+
+function Metric({ symbol, label, value }: { symbol: string; label: string; value: string }) {
   return (
     <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricSymbol}>{symbol}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+function BotanicalAccent() {
+  return (
+    <View pointerEvents="none" style={styles.botanicalAccent}>
+      <View style={[styles.accentLeaf, styles.accentLeafTop]} />
+      <View style={[styles.accentLeaf, styles.accentLeafBottom]} />
+      <View style={styles.accentStem} />
     </View>
   );
 }
@@ -366,54 +383,130 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 106,
+    paddingHorizontal: 18,
+    paddingBottom: 108,
   },
   topCluster: {
-    gap: 12,
+    gap: 14,
+    paddingTop: 6,
   },
-  topBar: {
-    borderRadius: radii.medium,
-  },
-  topBarContent: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 10,
+    gap: 16,
   },
   iconButton: {
-    minWidth: 42,
-    height: 42,
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 21,
-    backgroundColor: colors.cream,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surfaceStrong,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
   },
   iconText: {
     color: colors.canopy,
-    fontSize: 13,
-    fontWeight: '900',
+    fontSize: 27,
+    fontWeight: '500',
+    lineHeight: 30,
   },
   titleGroup: {
-    alignItems: 'center',
-    gap: 3,
+    flex: 1,
+    alignItems: 'flex-start',
+    gap: 4,
   },
   title: {
     color: colors.ink,
-    fontSize: 19,
-    fontWeight: '900',
+    fontSize: 39,
+    fontWeight: '800',
     letterSpacing: 0,
   },
   subtitle: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '800',
+    color: colors.canopy,
+    fontSize: 13,
+    fontWeight: '700',
   },
-  statusRail: {
+  statusCapsule: {
+    borderRadius: radii.round,
+  },
+  statusCapsuleContent: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  statusChip: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: radii.round,
+    paddingHorizontal: 8,
+  },
+  statusSymbol: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  statusSymbolGreen: {
+    color: colors.canopy,
+  },
+  statusSymbolBlue: {
+    color: '#267eea',
+  },
+  statusSymbolYellow: {
+    color: colors.pollen,
+  },
+  statusChipText: {
+    minWidth: 0,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusDotBlue: {
+    backgroundColor: '#267eea',
+  },
+  statusDotGreen: {
+    backgroundColor: colors.leaf,
+  },
+  mapControls: {
+    position: 'absolute',
+    right: 18,
+    top: 218,
+    gap: 14,
+  },
+  mapControl: {
+    width: 58,
+    height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 29,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surfaceStrong,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  mapControlText: {
+    color: colors.canopy,
+    fontSize: 27,
+    fontWeight: '600',
   },
   cellDot: {
     minWidth: 28,
@@ -432,19 +525,59 @@ const styles = StyleSheet.create({
   cellDotText: {
     color: colors.canopy,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   bottomCard: {
-    borderRadius: radii.medium,
+    borderRadius: radii.sheet,
   },
   bottomCardContent: {
     gap: 14,
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 18,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 54,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(22, 63, 45, 0.24)',
   },
   cardTopRow: {
     flexDirection: 'row',
     gap: 14,
     alignItems: 'center',
+  },
+  leafMedallion: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: 'rgba(223, 241, 207, 0.78)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  leafIcon: {
+    width: 34,
+    height: 22,
+    borderTopLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderWidth: 3,
+    borderColor: colors.moss,
+    transform: [{ rotate: '-38deg' }],
+  },
+  leafStem: {
+    position: 'absolute',
+    width: 3,
+    height: 32,
+    borderRadius: 2,
+    backgroundColor: colors.moss,
+    transform: [{ rotate: '42deg' }, { translateY: 5 }],
   },
   cellTextGroup: {
     flex: 1,
@@ -452,23 +585,57 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.ink,
-    fontSize: 21,
-    fontWeight: '900',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
     letterSpacing: 0,
   },
   cardBody: {
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  botanicalAccent: {
+    width: 62,
+    height: 76,
+    opacity: 0.42,
+  },
+  accentStem: {
+    position: 'absolute',
+    left: 30,
+    top: 10,
+    width: 2,
+    height: 58,
+    borderRadius: 1,
+    backgroundColor: colors.moss,
+    transform: [{ rotate: '18deg' }],
+  },
+  accentLeaf: {
+    position: 'absolute',
+    width: 34,
+    height: 18,
+    borderTopLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    backgroundColor: colors.sprout,
+  },
+  accentLeafTop: {
+    top: 12,
+    right: 0,
+    transform: [{ rotate: '-18deg' }],
+  },
+  accentLeafBottom: {
+    left: 4,
+    top: 42,
+    transform: [{ rotate: '162deg' }],
   },
   selectedCellBox: {
     gap: 10,
-    borderRadius: radii.medium,
+    borderRadius: radii.large,
     borderWidth: 1,
-    borderColor: colors.line,
-    padding: 12,
-    backgroundColor: colors.field,
+    borderColor: 'rgba(255, 255, 255, 0.82)',
+    padding: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
   },
   selectedCellHeader: {
     flexDirection: 'row',
@@ -478,58 +645,49 @@ const styles = StyleSheet.create({
   },
   selectedCellTitle: {
     flex: 1,
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
+    color: colors.canopy,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  selectedCellState: {
-    color: colors.moss,
-    fontSize: 12,
-    fontWeight: '900',
+  bloomDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.bloom,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
   metricRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  discoveryRail: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  miniDiscovery: {
-    flex: 1,
-    gap: 3,
-    borderRadius: radii.small,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.58)',
-  },
-  miniDiscoveryTitle: {
-    color: colors.canopy,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  miniDiscoveryBody: {
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: '800',
+    gap: 10,
   },
   metric: {
     flex: 1,
-    gap: 2,
-    borderRadius: radii.small,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: colors.white,
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radii.large,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 63, 45, 0.08)',
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.62)',
+  },
+  metricSymbol: {
+    color: colors.moss,
+    fontSize: 19,
+    fontWeight: '700',
   },
   metricValue: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: '900',
+    color: colors.canopy,
+    fontSize: 14,
+    fontWeight: '800',
   },
   metricLabel: {
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
   },
   notice: {
     flexDirection: 'row',
@@ -548,7 +706,7 @@ const styles = StyleSheet.create({
   noticeTitle: {
     color: colors.ink,
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   noticeBody: {
     color: colors.muted,
@@ -565,7 +723,7 @@ const styles = StyleSheet.create({
   noticeButtonText: {
     color: colors.white,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   loadingRow: {
     flexDirection: 'row',
@@ -589,14 +747,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.round,
     backgroundColor: colors.leaf,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
   },
   primaryActionText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   secondaryAction: {
     flex: 1,
@@ -605,12 +763,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radii.round,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: glass.hairline,
+    backgroundColor: 'rgba(255, 255, 255, 0.64)',
   },
   secondaryActionText: {
     color: colors.canopy,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
   },
 });

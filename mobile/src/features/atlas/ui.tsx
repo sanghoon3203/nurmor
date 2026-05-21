@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { bloomColors, colors, radii } from '../../theme/tokens';
+import { bloomColors, colors, glass, radii } from '../../theme/tokens';
 import { AtlasCodexEntry } from './mockData';
 
 type ButtonProps = {
@@ -135,24 +135,24 @@ export function CellGlyph({ state, selected = false }: { state: string; selected
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.round,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     borderWidth: 1,
   },
   primaryButton: {
     borderColor: colors.leaf,
     backgroundColor: colors.leaf,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
   },
   secondaryButton: {
-    borderColor: colors.warmLine,
-    backgroundColor: colors.cream,
+    borderColor: glass.hairline,
+    backgroundColor: 'rgba(255, 255, 255, 0.64)',
   },
   disabledButton: {
     opacity: 0.55,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0,
   },
   secondaryButtonText: {
@@ -180,12 +180,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 15,
-    backgroundColor: colors.moss,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: colors.leaf,
   },
   stepBadgeText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   stepTextGroup: {
     flex: 1,
@@ -194,41 +196,41 @@ const styles = StyleSheet.create({
   stepTitle: {
     color: colors.ink,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0,
   },
   stepSubtitle: {
     color: colors.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   stepAction: {
     marginLeft: 'auto',
   },
   softPanel: {
-    borderRadius: radii.medium,
+    borderRadius: radii.large,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: glass.hairline,
     padding: 16,
-    backgroundColor: colors.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
   },
   paperPanel: {
-    borderColor: colors.warmLine,
-    backgroundColor: colors.parchment,
+    borderColor: 'rgba(234, 220, 182, 0.82)',
+    backgroundColor: 'rgba(255, 248, 232, 0.76)',
   },
   greenPanel: {
-    borderColor: '#afcf91',
-    backgroundColor: colors.mint,
+    borderColor: 'rgba(175, 207, 145, 0.74)',
+    backgroundColor: 'rgba(223, 241, 207, 0.74)',
   },
   segmentWrap: {
     flexDirection: 'row',
     gap: 4,
     borderWidth: 1,
-    borderColor: colors.warmLine,
+    borderColor: glass.hairline,
     borderRadius: radii.round,
     padding: 4,
-    backgroundColor: colors.cream,
+    backgroundColor: 'rgba(255, 255, 255, 0.56)',
   },
   segment: {
     flex: 1,
@@ -238,26 +240,31 @@ const styles = StyleSheet.create({
     borderRadius: radii.round,
   },
   segmentSelected: {
-    backgroundColor: colors.leaf,
+    backgroundColor: colors.white,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.09,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
   },
   segmentText: {
     color: colors.canopy,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   segmentTextSelected: {
-    color: colors.white,
+    color: colors.moss,
+    fontWeight: '800',
   },
   progressTrack: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#e6dfc9',
+    backgroundColor: 'rgba(22, 63, 45, 0.1)',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: colors.leaf,
+    backgroundColor: colors.moss,
   },
   badge: {
     borderRadius: radii.round,
@@ -276,17 +283,17 @@ const styles = StyleSheet.create({
   badgeText: {
     color: colors.canopy,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   codexCard: {
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
-    borderRadius: radii.medium,
+    borderRadius: radii.large,
     borderWidth: 1,
-    borderColor: colors.warmLine,
-    padding: 10,
-    backgroundColor: colors.paper,
+    borderColor: glass.hairline,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
   },
   entryThumb: {
     width: 58,
@@ -309,7 +316,7 @@ const styles = StyleSheet.create({
   entryThumbText: {
     color: colors.canopy,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   entryBody: {
     flex: 1,
@@ -324,7 +331,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.ink,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   entryScientific: {
     color: colors.text,
@@ -356,6 +363,6 @@ const styles = StyleSheet.create({
   cellGlyphText: {
     color: colors.canopy,
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
 });
