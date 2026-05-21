@@ -103,6 +103,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=gcp
 
 ## Project Tracking
 
+- Backend architecture and connection guide: `docs/backend_architecture_and_connection.md`
 - Current completion status and project-wide to-do: `docs/project_status_and_todo.md`
 - Mobile frontend implementation checklist: `docs/frontend_todo.md`
 - Frontend design guidance for future UI work: `skills/frontend.md`

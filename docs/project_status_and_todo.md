@@ -12,6 +12,7 @@ Atlas는 지도 위 HabitatCell을 중심으로 지역 생태계 관찰 데이�
 - 지도 위 셀 overlay, 기록 심기, 개화도, 셀 도감 중심의 제품 언어를 정리했다.
 - `ObservationRecord`, `MediaAsset`, `AnalysisJob`, `SpeciesCandidate`, `CodexEntry`, `HabitatCell` 중심의 도메인 모델을 문서화했다.
 - `docs/project_spec.md`, `docs/components.md`, `docs/workflow.md`, `docs/design_system.md`, `docs/implementation_plan.md`, `docs/habitat_bloom_architecture.md`에 제품/기술 방향을 반영했다.
+- 현재 백엔드 구조와 모바일 연결 방법을 `docs/backend_architecture_and_connection.md`에 재정립했다.
 
 ### Backend Foundation
 
@@ -74,7 +75,8 @@ Firebase Storage upload verification: pending
 Gemini real structured response hardening: pending
 Mobile app shell: Phase 1-2 complete
 Frontend/backend full integration: in progress
-Production deployment: pending
+Cloud Run first deployment: complete
+Production hardening: pending
 ```
 
 ## Backend To-Do
