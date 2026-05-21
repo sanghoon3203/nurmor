@@ -4,12 +4,19 @@ Expo + React Native mobile workspace for the Atlas Habitat Bloom MVP.
 
 ## Current Scope
 
-This app is currently a safe starter shell. It has Expo Router configured and a first screen that lists the frontend build order.
+This app now has the first connected mobile shell:
+
+- Firebase anonymous sign-in through Firebase Auth REST API
+- Firebase ID token persistence and refresh
+- Atlas API health request
+- Authenticated nearby HabitatCell request
+- Foreground location permission
+- Map home with user location, cell polygons, cell markers, and cell summary panel
 
 Next implementation target:
 
 ```text
-Firebase anonymous sign-in -> Atlas API bearer request -> location-aware map home
+photo picker -> Firebase Storage upload -> media register -> observation create
 ```
 
 ## Environment
@@ -32,6 +39,7 @@ EXPO_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
 ```
 
 Use your machine LAN IP instead of `127.0.0.1` when testing from a physical phone.
+Anonymous sign-in must be enabled in Firebase Authentication.
 
 ## Commands
 
@@ -40,6 +48,7 @@ npm install
 npm run ios
 npm run android
 npm run typecheck
+npm run expo:check
 ```
 
 ## To-Do

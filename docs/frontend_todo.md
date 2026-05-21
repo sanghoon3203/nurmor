@@ -21,29 +21,29 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
 
 ## Phase 1: Auth and API Handshake
 
-- [ ] Firebase anonymous sign-in 구현
-  - [ ] Firebase Web API key를 `EXPO_PUBLIC_FIREBASE_API_KEY`로 읽는다.
-  - [ ] anonymous sign-in REST call 또는 Firebase JS SDK 중 하나로 ID token을 얻는다.
-  - [ ] token refresh 흐름을 추가한다.
-- [ ] API client 구현
-  - [ ] `EXPO_PUBLIC_ATLAS_API_BASE_URL`을 읽는다.
-  - [ ] bearer token을 자동 첨부한다.
-  - [ ] network error, unauthorized, server error를 분리한다.
-- [ ] 연결 확인 화면 구현
-  - [ ] `/actuator/health` 결과 표시
-  - [ ] `/api/habitat-cells/nearby` authenticated request 결과 표시
+- [x] Firebase anonymous sign-in 구현
+  - [x] Firebase Web API key를 `EXPO_PUBLIC_FIREBASE_API_KEY`로 읽는다.
+  - [x] anonymous sign-in REST call로 ID token을 얻는다.
+  - [x] token refresh 흐름을 추가한다.
+- [x] API client 구현
+  - [x] `EXPO_PUBLIC_ATLAS_API_BASE_URL`을 읽는다.
+  - [x] bearer token을 자동 첨부한다.
+  - [x] network error, unauthorized, server error를 분리한다.
+- [x] 연결 확인 화면 구현
+  - [x] `/actuator/health` 결과 표시
+  - [x] `/api/habitat-cells/nearby` authenticated request 결과 표시
 
 ## Phase 2: Map Home
 
-- [ ] foreground location permission 요청
-- [ ] 권한 거부/허용/로딩 상태 UI 구현
-- [ ] 현재 위치를 지도 중심으로 설정
-- [ ] backend nearby cells를 지도 state로 보관
-- [ ] 빈 셀 상태를 명확히 표시
-- [ ] 셀 overlay 1차 구현
-  - [ ] 우선 polygon 또는 marker로 단순 표시
-  - [ ] bloom state별 색상 token 적용
-  - [ ] 셀 탭 시 cell summary 표시
+- [x] foreground location permission 요청
+- [x] 권한 거부/허용/로딩 상태 UI 구현
+- [x] 현재 위치를 지도 중심으로 설정
+- [x] backend nearby cells를 지도 state로 보관
+- [x] 빈 셀 상태를 명확히 표시
+- [x] 셀 overlay 1차 구현
+  - [x] 우선 polygon 또는 marker로 단순 표시
+  - [x] bloom state별 색상 token 적용
+  - [x] 셀 탭 시 cell summary 표시
 
 ## Phase 3: Capture and Upload
 

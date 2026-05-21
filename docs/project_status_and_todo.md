@@ -58,7 +58,11 @@ Atlas는 지도 위 HabitatCell을 중심으로 지역 생태계 관찰 데이�
 - `/mobile`에 Expo + React Native + TypeScript 앱을 생성했다.
 - Expo Router, Location, Image Picker, React Native Maps 기반 의존성을 추가했다.
 - `mobile/.env.example`에 프론트엔드 public env 목록을 추가했다.
-- 최소 라우터 화면을 추가해 프론트엔드 작업 순서를 앱 첫 화면에 표시했다.
+- Firebase anonymous sign-in REST flow를 추가했다.
+- Firebase ID token persistence/refresh를 추가했다.
+- Atlas API health와 authenticated nearby-cell request를 연결했다.
+- foreground location permission과 현재 위치 기반 지도 홈을 구현했다.
+- HabitatCell polygon/marker overlay와 cell summary panel을 구현했다.
 
 ## Current State
 
@@ -68,8 +72,8 @@ Cloud SQL connection: complete
 Firebase Auth backend verification path: complete
 Firebase Storage upload verification: pending
 Gemini real structured response hardening: pending
-Mobile app shell: started
-Frontend/backend full integration: pending
+Mobile app shell: Phase 1-2 complete
+Frontend/backend full integration: in progress
 Production deployment: pending
 ```
 
