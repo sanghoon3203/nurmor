@@ -44,11 +44,20 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
   - [x] 우선 polygon 또는 marker로 단순 표시
   - [x] bloom state별 색상 token 적용
   - [x] 셀 탭 시 cell summary 표시
+- [x] 레퍼런스 UI 방향 반영
+  - [x] 지도 위 HabitatCell overlay를 홈 화면의 중심 시각 요소로 재구성
+  - [x] “내 생태 지도”, “기록 심기”, “셀 도감 보기” 흐름 추가
+  - [x] 실제 backend cell이 없을 때도 제품 흐름을 볼 수 있는 preview cell 제공
 
 ## Phase 3: Capture and Upload
 
-- [ ] 사진 선택을 먼저 구현
+- [x] 사진 선택을 먼저 구현
+- [x] 관찰 시작 화면 1차 구현
+  - [x] 사진/영상/소리 segmented control
+  - [x] 위치 기록 상태 표시
+  - [x] 레퍼런스 기반 capture controls
 - [ ] 이후 카메라 촬영 추가
+- [ ] 소리 녹음 모듈 추가
 - [ ] Firebase Storage path 규칙 확정
   - [ ] `users/{firebaseUid}/observations/{timestamp}-{filename}`
 - [ ] Firebase Storage upload 구현
@@ -66,15 +75,23 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
 
 ## Phase 5: Analysis Flow
 
+- [x] Gemini 분석 화면 1차 구현
+  - [x] “기록을 읽는 중” 분석 ring
+  - [x] species candidate card
+  - [x] confidence/evidence 표시
+  - [x] failed/schema validation 안내 copy
 - [ ] `POST /api/observations/{id}/analyze` 연결
 - [ ] `GET /api/analysis-jobs/{id}` polling 구현
 - [ ] queued/running/succeeded/failed 상태 UI 구현
-- [ ] species candidates card 구현
-- [ ] confidence/evidence 표시
 - [ ] 사용자가 후보를 선택할 수 있게 한다.
 
 ## Phase 6: Plant and Codex
 
+- [x] 서식지 셀 도감 화면 1차 구현
+  - [x] bloom percentage card
+  - [x] CodexEntryCard list
+  - [x] contributor display setting
+  - [x] HabitatCell 상태 legend
 - [ ] `POST /api/observations/{id}/plant` 연결
 - [ ] planted 성공 화면 구현
 - [ ] cell bloom score 갱신 확인
@@ -83,11 +100,13 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
 
 ## Phase 7: Design Refinement
 
-- [ ] `skills/frontend.md`의 frontend-design 원칙을 읽고 디자인 방향을 고정한다.
-- [ ] 지도 화면의 브랜드 언어를 `Living Archive + Habitat Bloom`으로 맞춘다.
-- [ ] 점령/영토 언어는 피하고 기록/개화/서식지 언어를 사용한다.
-- [ ] 화면 밀도는 모바일 현장 사용에 맞게 낮게 유지한다.
-- [ ] 셀 overlay, capture button, analysis result card를 하나의 제품처럼 보이게 정리한다.
+- [x] `skills/frontend.md`의 frontend-design 원칙을 읽고 디자인 방향을 고정한다.
+- [x] 지도 화면의 브랜드 언어를 `Living Archive + Habitat Bloom`으로 맞춘다.
+- [x] 점령/영토 언어는 피하고 기록/개화/서식지 언어를 사용한다.
+- [x] 화면 밀도는 모바일 현장 사용에 맞게 낮게 유지한다.
+- [x] 셀 overlay, capture button, analysis result card를 하나의 제품처럼 보이게 정리한다.
+- [ ] 실제 식물/곤충 bitmap asset 또는 촬영 thumbnail을 연결한다.
+- [ ] iOS/Android 실기기에서 화면 밀도와 터치 영역을 조정한다.
 
 ## Phase 8: QA
 
