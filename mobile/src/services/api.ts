@@ -16,6 +16,67 @@ export type HealthResponse = {
   status: string;
 };
 
+export type RegisterMediaAssetRequest = {
+  type: 'PHOTO' | 'VIDEO' | 'AUDIO';
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksum: string;
+};
+
+export type MediaAssetResponse = {
+  id: string;
+  type: string;
+  storageKey: string;
+  mimeType: string;
+};
+
+export type CreateObservationRequest = {
+  mediaAssetIds: string[];
+  latitude: number;
+  longitude: number;
+  locationAccuracyMeters: number;
+  capturedAt: string;
+};
+
+export type ObservationResponse = {
+  id: string;
+  habitatCellId: string;
+  status: string;
+  publicLat: number;
+  publicLng: number;
+};
+
+export type AnalysisCandidateResponse = {
+  id: string;
+  commonNameKo: string;
+  scientificName: string | null;
+  confidence: number;
+  evidence: string;
+};
+
+export type AnalysisResponse = {
+  jobId: string;
+  observationRecordId: string;
+  model: string;
+  status: string;
+  candidates: AnalysisCandidateResponse[];
+};
+
+export type PlantObservationRequest = {
+  speciesCandidateId: string;
+  visibility: 'PRIVATE' | 'CELL' | 'PUBLIC';
+};
+
+export type CodexEntryResponse = {
+  id: string;
+  habitatCellId: string;
+  speciesKey: string;
+  displayName: string;
+  observationCount: number;
+  bestConfidence: number;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -25,12 +86,15 @@ export class ApiError extends Error {
   }
 }
 
-async function requestJson<T>(path: string, idToken?: string): Promise<T> {
+async function requestJson<T>(path: string, idToken?: string, init?: RequestInit): Promise<T> {
   const env = getPublicEnv();
   const response = await fetch(`${env.atlasApiBaseUrl}${path}`, {
+    ...init,
     headers: {
       Accept: 'application/json',
       ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init?.headers,
     },
   });
 
@@ -47,4 +111,37 @@ export function getHealth() {
 
 export function getNearbyHabitatCells(idToken: string) {
   return requestJson<HabitatCell[]>('/api/habitat-cells/nearby', idToken);
+}
+
+export function registerMediaAsset(idToken: string, request: RegisterMediaAssetRequest) {
+  return postJson<MediaAssetResponse>('/api/media/register', idToken, request);
+}
+
+export function createObservation(idToken: string, request: CreateObservationRequest) {
+  return postJson<ObservationResponse>('/api/observations', idToken, request);
+}
+
+export function analyzeObservation(idToken: string, observationId: string) {
+  return requestJson<AnalysisResponse>(`/api/observations/${encodeURIComponent(observationId)}/analyze`, idToken, {
+    method: 'POST',
+  });
+}
+
+export function getAnalysisJob(idToken: string, analysisJobId: string) {
+  return requestJson<AnalysisResponse>(`/api/analysis-jobs/${encodeURIComponent(analysisJobId)}`, idToken);
+}
+
+export function plantObservation(idToken: string, observationId: string, request: PlantObservationRequest) {
+  return postJson<HabitatCell>(`/api/observations/${encodeURIComponent(observationId)}/plant`, idToken, request);
+}
+
+export function getCodexEntries(idToken: string, habitatCellId: string) {
+  return requestJson<CodexEntryResponse[]>(`/api/habitat-cells/${encodeURIComponent(habitatCellId)}/codex`, idToken);
+}
+
+function postJson<T>(path: string, idToken: string, body: unknown) {
+  return requestJson<T>(path, idToken, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }

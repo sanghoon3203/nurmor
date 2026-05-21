@@ -56,22 +56,23 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
   - [x] 사진/영상/소리 segmented control
   - [x] 위치 기록 상태 표시
   - [x] 레퍼런스 기반 capture controls
+- [x] Firebase Storage REST upload 유틸 구현
+- [x] Firebase Storage object path 규칙 구현
+  - [x] `users/{firebaseUid}/observations/{timestamp}-{filename}`
+- [x] upload 완료 후 metadata 추출
+- [x] `POST /api/media/register` 연결
 - [ ] 이후 카메라 촬영 추가
 - [ ] 소리 녹음 모듈 추가
-- [ ] Firebase Storage path 규칙 확정
-  - [ ] `users/{firebaseUid}/observations/{timestamp}-{filename}`
-- [ ] Firebase Storage upload 구현
-- [ ] upload progress UI 구현
-- [ ] upload 완료 후 metadata 추출
-- [ ] `POST /api/media/register` 연결
+- [ ] 실제 upload progress percentage 구현
+- [ ] Firebase Storage Security Rules를 실기기 업로드로 검증
 
 ## Phase 4: Observation Create
 
-- [ ] 현재 위치와 media id를 묶어 observation 생성
-- [ ] `POST /api/observations` 연결
-- [ ] 성공 후 observation detail state 생성
+- [x] 현재 위치와 media id를 묶어 observation 생성
+- [x] `POST /api/observations` 연결
+- [x] 성공 후 observation detail state 생성
 - [ ] 실패 시 retry 가능하게 유지
-- [ ] exact location은 화면에 공개 표시하지 않는다.
+- [x] exact location은 화면에 공개 표시하지 않는다.
 
 ## Phase 5: Analysis Flow
 
@@ -80,10 +81,12 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
   - [x] species candidate card
   - [x] confidence/evidence 표시
   - [x] failed/schema validation 안내 copy
-- [ ] `POST /api/observations/{id}/analyze` 연결
-- [ ] `GET /api/analysis-jobs/{id}` polling 구현
-- [ ] queued/running/succeeded/failed 상태 UI 구현
-- [ ] 사용자가 후보를 선택할 수 있게 한다.
+- [x] `POST /api/observations/{id}/analyze` 연결
+- [x] 분석 결과를 앱 state에 보관
+- [x] `GET /api/analysis-jobs/{id}` polling 구현
+- [x] queued/running/succeeded/failed 기본 상태 UI 구현
+- [x] 사용자가 후보를 지도에 심을 수 있게 한다.
+- [x] 여러 후보 중 선택 UI 구현
 
 ## Phase 6: Plant and Codex
 
@@ -92,11 +95,11 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
   - [x] CodexEntryCard list
   - [x] contributor display setting
   - [x] HabitatCell 상태 legend
-- [ ] `POST /api/observations/{id}/plant` 연결
-- [ ] planted 성공 화면 구현
-- [ ] cell bloom score 갱신 확인
-- [ ] `GET /api/habitat-cells/{cellId}/codex` 연결
-- [ ] cell codex list/card UI 구현
+- [x] `POST /api/observations/{id}/plant` 연결
+- [x] planted 성공 화면 구현
+- [x] `GET /api/habitat-cells/{cellId}/codex` 연결
+- [x] cell codex list/card UI 구현
+- [ ] cell bloom score 갱신을 실제 DB row와 대조 확인
 
 ## Phase 7: Design Refinement
 
@@ -115,6 +118,7 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
 - [ ] 실제 Firebase Auth token으로 backend 200 확인
 - [ ] token 없는 요청 401 확인
 - [ ] 위치 권한 거부 상태 확인
+- [ ] Firebase Storage upload 성공 확인
 - [ ] upload 실패 상태 확인
 - [ ] observation 생성 후 DB row 확인
 - [ ] planted 후 codex row 확인

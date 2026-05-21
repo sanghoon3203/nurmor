@@ -121,7 +121,7 @@ Atlas는 Expo 기반 React Native 앱과 별도 백엔드 API로 구현한다. �
 - 정확 좌표는 private field로 저장하고 공개 지도에는 cell 단위 위치를 사용한다.
 
 ### 7.2 Gemini Analysis
-- `POST /api/observations/:id/analyze`에서 `gemini-3-flash-preview` 분석 작업을 생성한다.
+- `POST /api/observations/:id/analyze`에서 `gemini-3.1-flash-lite` 분석 작업을 생성한다.
 - structured JSON output을 요구하고 서버에서 schema validation을 수행한다.
 - 생물 후보, 신뢰도, 관찰 근거, 불확실성 이유를 저장한다.
 

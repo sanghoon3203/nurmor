@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "outDir": ".tmp-tests",
+    "rootDir": ".",
+    "noEmit": false,
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/config/env.ts",
+    "src/services/api.ts",
+    "src/services/api.test.ts",
+    "src/services/firebaseStorageRest.ts",
+    "src/services/firebaseStorageRest.test.ts"
+  ]
+}

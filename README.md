@@ -12,7 +12,7 @@ Atlas is a Habitat Bloom backend for a map-based ecological codex.
 - PostgreSQL for GCP/production
 - H2 for local/test bootstrap
 - Firebase Authentication and Firebase Storage
-- Gemini API model: `gemini-3-flash-preview`
+- Gemini API model: `gemini-3.1-flash-lite` by default, overrideable with `GEMINI_MODEL`
 
 ## Local Run
 
@@ -66,10 +66,13 @@ export DB_JDBC_URL="jdbc:postgresql://<host>:5432/atlas?sslmode=require"
 export DB_USERNAME="atlas"
 export DB_PASSWORD="..."
 export GEMINI_API_KEY="..."
+export GEMINI_MODEL="gemini-3.1-flash-lite"
 export FIREBASE_STORAGE_BUCKET="<firebase-storage-bucket>"
 # Optional for local real-token testing. Prefer Cloud Run service account credentials in GCP.
 export FIREBASE_SERVICE_ACCOUNT_PATH="/path/to/firebase-service-account.json"
 ```
+
+`gemini-3.1-flash-lite` is the default because it is the stable Gemini 3.1 Flash-Lite model code in the Gemini API model docs. Keep `GEMINI_MODEL` configurable so preview or newer 3.1 model codes can be tested without code changes.
 
 Run:
 

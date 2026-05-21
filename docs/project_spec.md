@@ -16,7 +16,7 @@ Atlas는 게임처럼 과장된 도감이 아니라, 자연 관찰과 위치 기
 
 ### 2.2 AI Analysis
 - 촬영/녹음 파일을 AI 분석 요청으로 전달한다.
-- AI 분석 기본 모델은 Gemini API의 `gemini-3-flash-preview`를 사용한다.
+- AI 분석 기본 모델은 Gemini API의 `gemini-3.1-flash-lite`를 사용한다.
 - 사진, 비디오, 오디오 입력을 모두 생물 추정과 관찰 근거 추출에 사용할 수 있어야 한다.
 - 분석 중에는 중복 제출을 막고 진행 상태를 명확히 표시한다.
 - 분석 성공 시 생물 후보, 신뢰도, 주요 특징, 관찰 근거, 위치 metadata를 보여준다.
@@ -68,7 +68,7 @@ Atlas는 다음 foundation을 사용한다. 자세한 브랜딩 방향은 [redes
 - Day 1: Expo/React Native 프로젝트 구조와 미디어 권한 설정
 - Day 2: Atlas design tokens와 기본 primitives 구현
 - Day 3: Capture Suite와 `WaveformMeter` 구현
-- Day 4: Gemini 3 Flash 분석 요청/결과 상태 UI 구현
+- Day 4: Gemini 3.1 Flash 분석 요청/결과 상태 UI 구현
 - Day 5: 지도 셀 overlay, `HabitatCell`, 도감 등록 흐름 구현
 - Day 6: 백엔드 데이터 모델, 중복 후보, 공개 범위, 보안 검증
 - Day 7: 접근성, 오류 상태, 성능 검증

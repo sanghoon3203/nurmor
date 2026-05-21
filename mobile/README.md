@@ -12,6 +12,9 @@ This app now has the first connected mobile shell:
 - Authenticated nearby HabitatCell request
 - Foreground location permission
 - Map home with user location, cell polygons, cell markers, and cell summary panel
+- Photo/video picker to Firebase Storage upload
+- MediaAsset registration and ObservationRecord creation
+- Analysis request with polling, multi-candidate review, selected candidate planting, and cell codex fetch
 
 ## Native App Identity
 
@@ -41,7 +44,7 @@ and wire them into the Expo native build config.
 Next implementation target:
 
 ```text
-photo picker -> Firebase Storage upload -> media register -> observation create
+camera capture -> upload progress percentage -> real-device Firebase/Cloud SQL/Gemini smoke test
 ```
 
 ## Environment
@@ -65,6 +68,29 @@ EXPO_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
 
 Use your machine LAN IP instead of `127.0.0.1` when testing from a physical phone.
 Anonymous sign-in must be enabled in Firebase Authentication.
+
+## Firebase Storage Rules
+
+For the current mobile upload path, Storage rules should allow authenticated users to write only under their own uid:
+
+```text
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/observations/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+The app uploads to:
+
+```text
+users/{firebaseUid}/observations/{timestamp}-{filename}
+```
+
+The Atlas backend stores the returned object as a private `storageKey`, not as a public download URL.
 
 ## Commands
 

@@ -16,7 +16,7 @@ graph TD
     D1 --> E[미디어 파일과 위치 metadata 생성]
     D2 --> E
     E --> F[백엔드에 분석 작업 생성]
-    F --> G[Gemini gemini-3-flash-preview 분석 요청]
+    F --> G[Gemini gemini-3.1-flash-lite 분석 요청]
     G --> H{분석 결과}
 
     H -- 성공 --> I[생물 후보, 신뢰도, 근거 표시]

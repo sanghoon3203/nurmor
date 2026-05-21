@@ -2,11 +2,21 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { codexEntries, habitatStates } from '../atlas/mockData';
+import { AtlasCodexEntry, codexEntries, habitatStates } from '../atlas/mockData';
 import { AtlasButton, CellGlyph, CodexEntryCard, ProgressBar, SoftPanel, StepHeader } from '../atlas/ui';
+import { useObservationFlow } from '../observation/ObservationFlowProvider';
+import { CodexEntryResponse } from '../../services/api';
 import { colors, radii } from '../../theme/tokens';
 
 export function CellDetailScreen() {
+  const flow = useObservationFlow();
+  const plantedCell = flow.state.plantedCell;
+  const entries = flow.state.codexEntries.length > 0 ? flow.state.codexEntries.map(toCodexEntryCard) : codexEntries;
+  const bloomScore = plantedCell?.bloomScore ?? 64;
+  const observationCount = plantedCell?.observationCount ?? 8;
+  const speciesCount = plantedCell?.speciesCount ?? 3;
+  const contributorCount = plantedCell?.contributorCount ?? 4;
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -23,11 +33,11 @@ export function CellDetailScreen() {
 
         <SoftPanel tone="green">
           <View style={styles.bloomHeader}>
-            <CellGlyph state="BLOOMED" selected />
+            <CellGlyph state={plantedCell?.bloomState ?? 'BLOOMED'} selected />
             <View style={styles.bloomTextGroup}>
-              <Text style={styles.bloomTitle}>개화도 64%</Text>
-              <ProgressBar value={64} />
-              <Text style={styles.bloomMeta}>기록 8개 · 종 3개 · 기여자 4명</Text>
+              <Text style={styles.bloomTitle}>개화도 {bloomScore}%</Text>
+              <ProgressBar value={bloomScore} />
+              <Text style={styles.bloomMeta}>기록 {observationCount}개 · 종 {speciesCount}개 · 기여자 {contributorCount}명</Text>
             </View>
           </View>
         </SoftPanel>
@@ -53,10 +63,17 @@ export function CellDetailScreen() {
         </View>
 
         <View style={styles.codexList}>
-          {codexEntries.map((entry) => (
+          {entries.map((entry) => (
             <CodexEntryCard key={entry.id} entry={entry} />
           ))}
         </View>
+
+        {flow.state.errorMessage ? (
+          <SoftPanel>
+            <Text style={styles.errorTitle}>연동 오류</Text>
+            <Text style={styles.errorBody}>{flow.state.errorMessage}</Text>
+          </SoftPanel>
+        ) : null}
 
         <SoftPanel>
           <Text style={styles.sectionTitle}>기여자 표시 설정</Text>
@@ -90,6 +107,19 @@ export function CellDetailScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function toCodexEntryCard(entry: CodexEntryResponse, index: number): AtlasCodexEntry {
+  return {
+    id: entry.id,
+    title: entry.displayName,
+    scientificName: entry.speciesKey,
+    confidence: Math.round(entry.bestConfidence * 100) > 100 ? Math.round(entry.bestConfidence) : Math.round(entry.bestConfidence * 100),
+    date: '방금 전',
+    contributor: '김상훈',
+    tone: index % 3 === 0 ? 'butterfly' : index % 3 === 1 ? 'flower' : 'bird',
+    isLatest: index === 0,
+  };
 }
 
 const styles = StyleSheet.create({
@@ -271,6 +301,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     textAlign: 'center',
+    fontWeight: '700',
+  },
+  errorTitle: {
+    color: colors.danger,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  errorBody: {
+    marginTop: 6,
+    color: colors.text,
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: '700',
   },
 });

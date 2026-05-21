@@ -5,6 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AtlasButton, SegmentedControl, SoftPanel, StepHeader } from '../atlas/ui';
+import { PickedObservationAsset, useObservationFlow } from '../observation/ObservationFlowProvider';
 import { colors, radii } from '../../theme/tokens';
 
 type CaptureMode = '사진' | '영상' | '소리';
@@ -12,13 +13,16 @@ type CaptureMode = '사진' | '영상' | '소리';
 const captureModes: readonly CaptureMode[] = ['사진', '영상', '소리'];
 
 export function CaptureScreen() {
+  const flow = useObservationFlow();
   const [mode, setMode] = useState<CaptureMode>('사진');
   const [assetUri, setAssetUri] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<PickedObservationAsset | null>(null);
   const [status, setStatus] = useState('이 셀에 기록을 심을 준비');
 
   const pickMedia = async () => {
     if (mode === '소리') {
       setAssetUri(null);
+      setSelectedAsset(null);
       setStatus('소리 기록은 다음 단계에서 녹음 모듈과 연결됩니다.');
       return;
     }
@@ -29,9 +33,21 @@ export function CaptureScreen() {
     });
 
     if (!result.canceled) {
-      setAssetUri(result.assets[0]?.uri ?? null);
+      const asset = result.assets[0];
+      setSelectedAsset(asset ?? null);
+      setAssetUri(asset?.uri ?? null);
       setStatus(`${mode} 기록이 선택되었습니다.`);
     }
+  };
+
+  const startAnalysis = () => {
+    if (!selectedAsset) {
+      setStatus('먼저 분석할 사진 또는 영상을 선택해 주세요.');
+      return;
+    }
+
+    void flow.startCaptureAnalysis(selectedAsset);
+    router.push('/analysis');
   };
 
   return (
@@ -75,7 +91,8 @@ export function CaptureScreen() {
               <View key={index} style={[styles.wave, { height: 8 + (index % 5) * 6 }]} />
             ))}
           </View>
-          <Text style={styles.panelBody}>{status}</Text>
+          <Text style={styles.panelBody}>{flow.isBusy || flow.state.status === 'error' ? flow.state.message : status}</Text>
+          {flow.state.errorMessage ? <Text style={styles.errorText}>{flow.state.errorMessage}</Text> : null}
         </SoftPanel>
 
         <View style={styles.actionGrid}>
@@ -91,7 +108,7 @@ export function CaptureScreen() {
         </View>
 
         <View style={styles.buttons}>
-          <AtlasButton label="Gemini로 읽기" onPress={() => router.push('/analysis')} />
+          <AtlasButton label={flow.isBusy ? '처리 중' : 'Gemini로 읽기'} onPress={startAnalysis} disabled={flow.isBusy} />
           <AtlasButton label="지도 돌아가기" variant="secondary" onPress={() => router.back()} />
         </View>
       </ScrollView>
@@ -211,6 +228,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '700',
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
   },
   waveRow: {
     height: 46,

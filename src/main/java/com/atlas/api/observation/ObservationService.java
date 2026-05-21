@@ -5,6 +5,9 @@ import com.atlas.api.codex.CodexEntry;
 import com.atlas.api.codex.CodexEntryRepository;
 import com.atlas.api.common.ApiException;
 import com.atlas.api.habitat.*;
+import com.atlas.api.media.MediaAsset;
+import com.atlas.api.media.MediaAssetRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,16 +19,16 @@ import java.util.UUID;
 @Service
 public class ObservationService {
 
-    private static final String GEMINI_MODEL = "gemini-3-flash-preview";
-
     private final CellKeyService cellKeyService;
     private final HabitatCellRepository habitatCellRepository;
     private final ObservationRecordRepository observationRecordRepository;
     private final AnalysisJobRepository analysisJobRepository;
     private final SpeciesCandidateRepository speciesCandidateRepository;
     private final CodexEntryRepository codexEntryRepository;
+    private final MediaAssetRepository mediaAssetRepository;
     private final BloomScoreCalculator bloomScoreCalculator;
     private final GeminiAnalysisClient geminiAnalysisClient;
+    private final String geminiModel;
 
     public ObservationService(CellKeyService cellKeyService,
                               HabitatCellRepository habitatCellRepository,
@@ -33,16 +36,20 @@ public class ObservationService {
                               AnalysisJobRepository analysisJobRepository,
                               SpeciesCandidateRepository speciesCandidateRepository,
                               CodexEntryRepository codexEntryRepository,
+                              MediaAssetRepository mediaAssetRepository,
                               BloomScoreCalculator bloomScoreCalculator,
-                              GeminiAnalysisClient geminiAnalysisClient) {
+                              GeminiAnalysisClient geminiAnalysisClient,
+                              @Value("${atlas.gemini.model:gemini-3.1-flash-lite}") String geminiModel) {
         this.cellKeyService = cellKeyService;
         this.habitatCellRepository = habitatCellRepository;
         this.observationRecordRepository = observationRecordRepository;
         this.analysisJobRepository = analysisJobRepository;
         this.speciesCandidateRepository = speciesCandidateRepository;
         this.codexEntryRepository = codexEntryRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
         this.bloomScoreCalculator = bloomScoreCalculator;
         this.geminiAnalysisClient = geminiAnalysisClient;
+        this.geminiModel = geminiModel;
     }
 
     @Transactional
@@ -76,10 +83,11 @@ public class ObservationService {
     public AnalysisResponse analyze(UUID observationId) {
         ObservationRecord record = findObservation(observationId);
         record.markAnalyzing();
-        AnalysisJob job = analysisJobRepository.save(new AnalysisJob(record.getId(), GEMINI_MODEL, "habitat-bloom-v1"));
+        AnalysisJob job = analysisJobRepository.save(new AnalysisJob(record.getId(), geminiModel, "habitat-bloom-v1"));
         job.running();
         try {
-            List<SpeciesCandidate> candidates = geminiAnalysisClient.analyze(record).stream()
+            List<MediaAsset> mediaAssets = mediaAssetRepository.findAllById(record.getMediaAssetIds());
+            List<SpeciesCandidate> candidates = geminiAnalysisClient.analyze(record, mediaAssets).stream()
                 .map(candidate -> new SpeciesCandidate(
                     job.getId(),
                     candidate.commonNameKo(),

@@ -17,7 +17,7 @@ Core product sentence:
 Use Gemini API with the model ID:
 
 ```text
-gemini-3-flash-preview
+gemini-3.1-flash-lite
 ```
 
 Relevant official capabilities:
@@ -27,7 +27,7 @@ Relevant official capabilities:
 - Structured JSON output supported
 - Function calling supported
 - Search grounding supported
-- Google Maps grounding is not supported for Gemini 3 Flash Preview
+- Google Maps grounding support must be checked per selected Gemini model before use.
 
 Implementation rule:
 
@@ -141,7 +141,7 @@ Fields:
 
 - `id`
 - `observationRecordId`
-- `model`: `gemini-3-flash-preview`
+- `model`: `gemini-3.1-flash-lite`
 - `status`: `queued | running | succeeded | failed`
 - `promptVersion`
 - `inputSummary`

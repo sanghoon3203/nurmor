@@ -26,7 +26,7 @@
 
 - [ ] **5. Gemini analysis and observation planting**
   - [ ] 백엔드 `MediaAsset`, `ObservationRecord`, `AnalysisJob` 모델 정의
-  - [ ] `gemini-3-flash-preview` structured output schema 정의
+  - [ ] `gemini-3.1-flash-lite` structured output schema 정의
   - [ ] 사진, 영상, 소리 분석 요청 파이프라인 구현
   - [ ] 분석 요청 loading 상태 구현
   - [ ] 분석 성공 후보 선택 UI 구현

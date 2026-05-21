@@ -9,6 +9,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -111,6 +113,13 @@ public class ObservationRecord {
 
     public UUID getHabitatCellId() {
         return habitatCellId;
+    }
+
+    public List<UUID> getMediaAssetIds() {
+        return Arrays.stream(mediaAssetIdsCsv.split(","))
+            .filter(value -> !value.isBlank())
+            .map(UUID::fromString)
+            .toList();
     }
 
     public double getPublicLat() {
