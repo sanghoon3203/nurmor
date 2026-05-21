@@ -108,6 +108,12 @@ login -> map -> capture -> upload -> observation -> analysis -> plant -> codex
 - [x] 점령/영토 언어는 피하고 기록/개화/서식지 언어를 사용한다.
 - [x] 화면 밀도는 모바일 현장 사용에 맞게 낮게 유지한다.
 - [x] 셀 overlay, capture button, analysis result card를 하나의 제품처럼 보이게 정리한다.
+- [x] Expo Router 5탭 구조 추가: 도감/홈/기록/커뮤니티/마이
+- [x] iPhone 전용 앱 느낌의 glassmorphism shell 1차 구현
+- [x] 홈 지도 위 glass panel과 floating tab bar 적용
+- [x] 커뮤니티 5km 최근 발견 카드 UI 1차 구현
+- [x] 로그인/회원가입 UI shell 구현
+- [ ] `expo-blur`, `expo-linear-gradient` 기반 native glass pass 적용
 - [ ] 실제 식물/곤충 bitmap asset 또는 촬영 thumbnail을 연결한다.
 - [ ] iOS/Android 실기기에서 화면 밀도와 터치 영역을 조정한다.
 

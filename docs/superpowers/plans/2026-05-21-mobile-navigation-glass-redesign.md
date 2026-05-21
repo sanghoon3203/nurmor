@@ -10,22 +10,17 @@
 
 ---
 
-### Task 1: Dependencies And Design Tokens
+### Task 1: Glass Fallback And Design Tokens
 
 **Files:**
 - Modify: `mobile/package.json`
 - Modify: `mobile/src/theme/tokens.ts`
 
-- [x] **Step 1: Add Expo glass dependencies**
+- [x] **Step 1: Keep first pass dependency-light**
 
-Run:
+Implementation note:
 
-```bash
-cd mobile
-npx expo install expo-blur expo-linear-gradient
-```
-
-Expected: `mobile/package.json` includes `expo-blur` and `expo-linear-gradient` with Expo 54-compatible versions.
+`expo-blur` and `expo-linear-gradient` are preferred for a later native blur pass, but the first pass uses pure React Native translucent surfaces so Expo Go verification is not blocked by dependency installation.
 
 - [x] **Step 2: Extend Atlas tokens**
 

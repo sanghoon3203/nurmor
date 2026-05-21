@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GradientScreen } from '../atlas/glass';
 import { AtlasButton, SegmentedControl, SoftPanel, StepHeader } from '../atlas/ui';
 import { PickedObservationAsset, useObservationFlow } from '../observation/ObservationFlowProvider';
 import { colors, radii } from '../../theme/tokens';
@@ -51,14 +52,15 @@ export function CaptureScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <GradientScreen>
+      <SafeAreaView style={styles.screen}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <StepHeader
           step={2}
           title="관찰 시작"
           subtitle="사진·영상·소리 중 하나를 남기고 현재 셀에 심을 기록을 준비합니다."
           action={
-            <Pressable accessibilityRole="button" style={styles.closeButton} onPress={() => router.back()}>
+            <Pressable accessibilityRole="button" style={styles.closeButton} onPress={() => router.push('/(tabs)')}>
               <Text style={styles.closeText}>닫기</Text>
             </Pressable>
           }
@@ -109,22 +111,22 @@ export function CaptureScreen() {
 
         <View style={styles.buttons}>
           <AtlasButton label={flow.isBusy ? '처리 중' : 'Gemini로 읽기'} onPress={startAnalysis} disabled={flow.isBusy} />
-          <AtlasButton label="지도 돌아가기" variant="secondary" onPress={() => router.back()} />
+          <AtlasButton label="지도 돌아가기" variant="secondary" onPress={() => router.push('/(tabs)')} />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </GradientScreen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.cream,
   },
   content: {
     gap: 18,
     padding: 18,
-    paddingBottom: 34,
+    paddingBottom: 124,
   },
   closeButton: {
     minHeight: 36,

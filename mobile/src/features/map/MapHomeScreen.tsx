@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassPanel, RevealView } from '../atlas/glass';
 import { CellGlyph, ProgressBar, StatusBadge } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
 import { HabitatCell, getHealth, getNearbyHabitatCells } from '../../services/api';
@@ -221,7 +222,7 @@ export function MapHomeScreen() {
 
       <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
         <View style={styles.topCluster}>
-          <View style={styles.topBar}>
+          <GlassPanel style={styles.topBar} contentStyle={styles.topBarContent}>
             <Pressable accessibilityRole="button" style={styles.iconButton}>
               <Text style={styles.iconText}>☰</Text>
             </Pressable>
@@ -232,7 +233,7 @@ export function MapHomeScreen() {
             <Pressable accessibilityRole="button" style={styles.iconButton}>
               <Text style={styles.iconText}>알림</Text>
             </Pressable>
-          </View>
+          </GlassPanel>
 
           <View style={styles.statusRail}>
             <StatusBadge label={auth.status === 'authenticated' ? '로그인됨' : '로그인 확인'} />
@@ -241,7 +242,8 @@ export function MapHomeScreen() {
           </View>
         </View>
 
-        <View style={styles.bottomCard}>
+        <RevealView>
+        <GlassPanel style={styles.bottomCard} contentStyle={styles.bottomCardContent}>
           <View style={styles.cardTopRow}>
             <CellGlyph state={selectedCell.bloomState} selected />
             <View style={styles.cellTextGroup}>
@@ -263,6 +265,12 @@ export function MapHomeScreen() {
               <Metric label="종" value={String(selectedCell.speciesCount)} />
               <Metric label="기여자" value={String(selectedCell.contributorCount)} />
             </View>
+          </View>
+
+          <View style={styles.discoveryRail}>
+            <MiniDiscovery title="노랑나비" distance="1.2km" />
+            <MiniDiscovery title="개망초" distance="860m" />
+            <MiniDiscovery title="직박구리" distance="3.1km" />
           </View>
 
           {auth.status === 'missing-config' ? (
@@ -294,12 +302,22 @@ export function MapHomeScreen() {
             <Pressable style={styles.secondaryAction} onPress={() => router.push('/cell')}>
               <Text style={styles.secondaryActionText}>셀 도감 보기</Text>
             </Pressable>
-            <Pressable style={styles.primaryAction} onPress={() => router.push('/capture')}>
+            <Pressable style={styles.primaryAction} onPress={() => router.push('/(tabs)/record')}>
               <Text style={styles.primaryActionText}>기록 심기</Text>
             </Pressable>
           </View>
-        </View>
+        </GlassPanel>
+        </RevealView>
       </SafeAreaView>
+    </View>
+  );
+}
+
+function MiniDiscovery({ title, distance }: { title: string; distance: string }) {
+  return (
+    <View style={styles.miniDiscovery}>
+      <Text style={styles.miniDiscoveryTitle}>{title}</Text>
+      <Text style={styles.miniDiscoveryBody}>{distance} 근처</Text>
     </View>
   );
 }
@@ -349,21 +367,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 106,
   },
   topCluster: {
     gap: 12,
   },
   topBar: {
+    borderRadius: radii.medium,
+  },
+  topBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
-    borderRadius: radii.medium,
-    borderWidth: 1,
-    borderColor: '#ffffffcc',
     padding: 10,
-    backgroundColor: '#fffdf4ee',
   },
   iconButton: {
     minWidth: 42,
@@ -419,16 +435,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   bottomCard: {
-    gap: 14,
     borderRadius: radii.medium,
-    borderWidth: 1,
-    borderColor: colors.warmLine,
+  },
+  bottomCardContent: {
+    gap: 14,
     padding: 16,
-    backgroundColor: '#fffdf4f5',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -479,6 +490,28 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  discoveryRail: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  miniDiscovery: {
+    flex: 1,
+    gap: 3,
+    borderRadius: radii.small,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
+  },
+  miniDiscoveryTitle: {
+    color: colors.canopy,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  miniDiscoveryBody: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '800',
   },
   metric: {
     flex: 1,

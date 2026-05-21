@@ -25,6 +25,21 @@ export const colors = {
   shadow: '#172219',
 } as const;
 
+export const glass = {
+  surface: 'rgba(255, 255, 255, 0.68)',
+  surfaceStrong: 'rgba(255, 255, 255, 0.82)',
+  border: 'rgba(255, 255, 255, 0.72)',
+  shadow: 'rgba(22, 63, 45, 0.18)',
+  tintGreen: 'rgba(223, 241, 207, 0.68)',
+  tintSky: 'rgba(205, 238, 245, 0.7)',
+  tintBloom: 'rgba(255, 207, 90, 0.25)',
+} as const;
+
+export const motion = {
+  panelMs: 380,
+  tabMs: 320,
+} as const;
+
 export const bloomColors: Record<string, string> = {
   UNOBSERVED: '#cbd8c5',
   VISITED: '#9fd1bf',

@@ -197,14 +197,14 @@ glass.tintSky: rgba(205, 238, 245, 0.7)
 glass.tintBloom: rgba(255, 207, 90, 0.25)
 ```
 
-Expo dependencies:
+Preferred Expo dependencies for a later native blur pass:
 
 ```text
 expo-blur
 expo-linear-gradient
 ```
 
-Use `BlurView` for glass panels when supported by Expo Go. Use translucent `View` fallback styling if blur is not available on a device.
+The first implementation may use translucent React Native `View` layers only, because this keeps Expo Go verification independent from dependency installation. Use `BlurView` for glass panels later when `expo-blur` is installed and verified. Use translucent fallback styling whenever blur is not available on a device.
 
 ## Motion System
 

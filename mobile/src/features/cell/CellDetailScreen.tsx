@@ -102,7 +102,7 @@ export function CellDetailScreen() {
           </View>
         </SoftPanel>
 
-        <AtlasButton label="새 기록 심기" onPress={() => router.push('/capture')} />
+        <AtlasButton label="새 기록 심기" onPress={() => router.push('/(tabs)/record')} />
         <Text style={styles.footerNote}>정확한 좌표와 원본 데이터는 비공개로 보관됩니다.</Text>
       </ScrollView>
     </SafeAreaView>

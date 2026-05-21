@@ -8,10 +8,14 @@ This app now has the first connected mobile shell:
 
 - Firebase anonymous sign-in through Firebase Auth REST API
 - Firebase ID token persistence and refresh
+- Five-tab Expo Router shell: `도감`, `홈`, `기록`, `커뮤니티`, `마이`
+- Bright glassmorphism UI primitives using pure React Native translucent surfaces
 - Atlas API health request
 - Authenticated nearby HabitatCell request
 - Foreground location permission
 - Map home with user location, cell polygons, cell markers, and cell summary panel
+- Community preview feed for recent nearby discoveries within 5 km
+- Login and signup UI shells, with anonymous Firebase auth still serving as the operational MVP path
 - Photo/video picker to Firebase Storage upload
 - MediaAsset registration and ObservationRecord creation
 - Analysis request with polling, multi-candidate review, selected candidate planting, and cell codex fetch
@@ -44,7 +48,7 @@ and wire them into the Expo native build config.
 Next implementation target:
 
 ```text
-camera capture -> upload progress percentage -> real-device Firebase/Cloud SQL/Gemini smoke test
+native blur/gradient pass -> camera capture -> upload progress percentage -> real-device Firebase/Cloud SQL/Gemini smoke test
 ```
 
 ## Environment
@@ -68,6 +72,11 @@ EXPO_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
 
 Use your machine LAN IP instead of `127.0.0.1` when testing from a physical phone.
 Anonymous sign-in must be enabled in Firebase Authentication.
+When using the deployed Cloud Run backend, set:
+
+```env
+EXPO_PUBLIC_ATLAS_API_BASE_URL=https://atlas-api-ngaj2pc2na-du.a.run.app
+```
 
 ## Firebase Storage Rules
 
@@ -99,6 +108,7 @@ npm install
 npm run ios
 npm run android
 npm run typecheck
+npm run test:unit
 npm run expo:check
 ```
 
