@@ -1,0 +1,12 @@
+.git
+.DS_Store
+target/
+mobile/
+docs/
+fonts/
+.env
+.env.*
+*.log
+*firebase-adminsdk*.json
+*service-account*.json
+atlas-dex-*.json
