@@ -2,6 +2,7 @@
   "expo": {
     "name": "Atlas",
     "slug": "atlas-mobile",
+    "scheme": "atlas",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -41,7 +42,8 @@
         {
           "photosPermission": "Atlas uses your photos to register ecological observations."
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

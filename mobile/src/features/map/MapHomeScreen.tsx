@@ -1,23 +1,29 @@
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassPanel, RevealView } from '../atlas/glass';
-import { ProgressBar } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
-import { HabitatCell } from '../../services/api';
-import { listNearbyHabitatCells } from '../../services/firebaseAtlasDb';
-import { bloomColors, colors, glass, radii } from '../../theme/tokens';
-import { BackendState, LocationState } from './types';
+import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
+import { colors, glass } from '../../theme/tokens';
+import { LocationState } from './types';
+
+type DiscoveryState =
+  | { status: 'idle'; discoveries: MapDiscovery[]; message: null }
+  | { status: 'loading'; discoveries: MapDiscovery[]; message: null }
+  | { status: 'ready'; discoveries: MapDiscovery[]; message: null }
+  | { status: 'error'; discoveries: MapDiscovery[]; message: string };
+
+type MapDiscovery = FirebaseCommunityDiscovery & {
+  discoveryNumber: number;
+};
 
 const fallbackRegion: Region = {
   latitude: 37.5665,
   longitude: 126.978,
-  latitudeDelta: 0.033,
-  longitudeDelta: 0.033,
+  latitudeDelta: 0.025,
+  longitudeDelta: 0.025,
 };
 
 function regionFromLocation(locationState: LocationState): Region {
@@ -33,81 +39,133 @@ function regionFromLocation(locationState: LocationState): Region {
   };
 }
 
-function hexPolygon(cell: HabitatCell) {
-  const latRadius = 0.00185;
-  const lngRadius = 0.00225;
-
-  return Array.from({ length: 6 }, (_, index) => {
-    const angle = Math.PI / 6 + index * (Math.PI / 3);
-    return {
-      latitude: cell.centerLat + Math.sin(angle) * latRadius,
-      longitude: cell.centerLng + Math.cos(angle) * lngRadius,
-    };
-  });
-}
-
-function demoCells(region: Region): HabitatCell[] {
-  const offsets = [
-    { id: 'demo-1', lat: 0, lng: 0, state: 'VISITED', score: 18 },
-    { id: 'demo-2', lat: 0.0026, lng: 0.0028, state: 'SEEDED', score: 32 },
-    { id: 'demo-3', lat: -0.0028, lng: 0.0032, state: 'GROWING', score: 52 },
-    { id: 'demo-4', lat: 0.0032, lng: -0.003, state: 'BLOOMED', score: 64 },
-    { id: 'demo-5', lat: -0.0032, lng: -0.0025, state: 'UNOBSERVED', score: 0 },
+function demoDiscoveries(region: Region): MapDiscovery[] {
+  const items = [
+    { name: '수달', category: 'ANIMAL' as const, contributor: 'hy.19', lat: 0.0018, lng: -0.0014, createdAt: '2026-05-22T11:34:00.000Z' },
+    { name: '참새', category: 'ANIMAL' as const, contributor: '새벽관찰자', lat: -0.0028, lng: 0.0026, createdAt: '2026-05-18T08:12:00.000Z' },
+    { name: '민들레', category: 'PLANT' as const, contributor: '초록손', lat: 0.0042, lng: 0.003, createdAt: '2026-04-29T15:21:00.000Z' },
+    { name: '무당벌레', category: 'OTHER' as const, contributor: '곤충기록자', lat: -0.0044, lng: -0.002, createdAt: '2026-05-04T10:05:00.000Z' },
   ];
 
-  return offsets.map((item, index) => ({
-    id: item.id,
-    cellKey: `preview-${index + 1}-${item.state.toLowerCase()}`,
-    centerLat: region.latitude + item.lat,
-    centerLng: region.longitude + item.lng,
-    bloomState: item.state,
-    bloomScore: item.score,
-    observationCount: item.state === 'UNOBSERVED' ? 0 : index + 1,
-    speciesCount: item.state === 'UNOBSERVED' ? 0 : Math.max(1, index),
-    contributorCount: item.state === 'UNOBSERVED' ? 0 : index + 1,
+  return items.map((item, index) => ({
+    id: `demo-discovery-${index + 1}`,
+    observationId: `demo-observation-${index + 1}`,
+    cellKey: `demo-cell-${index + 1}`,
+    userId: `demo-user-${index + 1}`,
+    contributorName: item.contributor,
+    displayName: item.name,
+    scientificName: null,
+    category: item.category,
+    imageUrl: null,
+    publicLat: region.latitude + item.lat,
+    publicLng: region.longitude + item.lng,
+    likeCount: index + 2,
+    commentCount: index,
+    createdAt: item.createdAt,
+    distanceKm: Math.round((index + 1) * 3) / 10,
+    discoveryNumber: index + 1,
   }));
 }
 
-function locationCopy(locationState: LocationState) {
-  switch (locationState.status) {
-    case 'granted':
-      return '현재 위치 기록 중';
-    case 'denied':
-      return '위치 권한 필요';
-    case 'error':
-      return '위치 확인 실패';
-    default:
-      return '위치 확인 중';
+function numberedDiscoveries(discoveries: FirebaseCommunityDiscovery[]): MapDiscovery[] {
+  return discoveries.map((discovery, index) => ({
+    ...discovery,
+    discoveryNumber: index + 1,
+  }));
+}
+
+function dateLabel(value: string | null) {
+  if (!value) {
+    return '기록 시기 확인 중';
   }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}.${month}.${day} ${hours}:${minutes}`;
+}
+
+function categoryMeta(discovery: FirebaseCommunityDiscovery) {
+  const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
+  if (discovery.category === 'PLANT') {
+    return { label: '식물', mark: '🌿' };
+  }
+  if (/곤충|벌레|나비|잠자리|beetle|butterfly|insect|ladybug/.test(source)) {
+    return { label: '곤충', mark: '🐞' };
+  }
+  if (discovery.category === 'ANIMAL') {
+    return { label: '동물', mark: '🐾' };
+  }
+  return { label: '기타', mark: '✨' };
+}
+
+function emojiForDiscovery(discovery: FirebaseCommunityDiscovery) {
+  const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
+  if (/수달|otter/.test(source)) return '🦦';
+  if (/새|참새|조류|bird|sparrow/.test(source)) return '🐦';
+  if (/나비|butterfly/.test(source)) return '🦋';
+  if (/벌|무당벌레|beetle|ladybug/.test(source)) return '🐞';
+  if (discovery.category === 'PLANT') return '🌿';
+  if (discovery.category === 'ANIMAL') return '🐾';
+  return '✨';
 }
 
 export function MapHomeScreen() {
   const auth = useAuth();
+  const mapRef = useRef<MapView | null>(null);
+  const cardMotion = useRef(new Animated.Value(0)).current;
   const [locationState, setLocationState] = useState<LocationState>({
     status: 'loading',
     location: null,
     message: null,
   });
-  const [backendState, setBackendState] = useState<BackendState>({
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>({
     status: 'idle',
-    cells: [],
+    discoveries: [],
     message: null,
   });
-  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
+  const [selectedDiscoveryId, setSelectedDiscoveryId] = useState<string | null>(null);
 
   const region = useMemo(() => regionFromLocation(locationState), [locationState]);
-  const cells = useMemo(
-    () => (backendState.cells.length > 0 ? backendState.cells : demoCells(region)),
-    [backendState.cells, region]
+  const discoveries = useMemo(
+    () => (discoveryState.status === 'ready' ? discoveryState.discoveries : demoDiscoveries(region)),
+    [discoveryState.discoveries, region]
   );
-  const selectedCell = useMemo(
-    () => cells.find((cell) => cell.id === selectedCellId) ?? cells[0],
-    [cells, selectedCellId]
+  const selectedDiscovery = useMemo(
+    () => discoveries.find((discovery) => discovery.id === selectedDiscoveryId) ?? null,
+    [discoveries, selectedDiscoveryId]
   );
 
-  const discoveredCount = backendState.cells.reduce((sum, cell) => sum + cell.observationCount, 0);
-  const visibleCellCount = backendState.cells.length > 0 ? backendState.cells.length : 3;
-  const apiReady = backendState.status === 'ready';
+  const showDiscovery = useCallback(
+    (discovery: MapDiscovery) => {
+      setSelectedDiscoveryId(discovery.id);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: discovery.publicLat,
+          longitude: discovery.publicLng,
+          latitudeDelta: region.latitudeDelta,
+          longitudeDelta: region.longitudeDelta,
+        },
+        420
+      );
+    },
+    [region.latitudeDelta, region.longitudeDelta]
+  );
+
+  const moveToCurrentLocation = useCallback(() => {
+    if (locationState.status !== 'granted') {
+      return;
+    }
+
+    mapRef.current?.animateToRegion(regionFromLocation(locationState), 420);
+  }, [locationState]);
 
   const loadLocation = useCallback(async () => {
     setLocationState({ status: 'loading', location: null, message: null });
@@ -117,7 +175,7 @@ export function MapHomeScreen() {
         setLocationState({
           status: 'denied',
           location: null,
-          message: '위치 권한이 있어야 주변 서식지 셀을 볼 수 있습니다.',
+          message: '위치 권한이 있어야 내 위치를 지도에 표시할 수 있습니다.',
         });
         return;
       }
@@ -135,19 +193,19 @@ export function MapHomeScreen() {
     }
   }, []);
 
-  const loadBackend = useCallback(async () => {
+  const loadDiscoveries = useCallback(async () => {
     if (!auth.session?.idToken) {
       return;
     }
 
-    setBackendState((current) => ({
+    setDiscoveryState((current) => ({
       status: 'loading',
-      cells: current.cells,
+      discoveries: current.discoveries,
       message: null,
     }));
 
     try {
-      const nextCells = await listNearbyHabitatCells(
+      const nextDiscoveries = await listCommunityDiscoveries(
         auth.session.idToken,
         locationState.status === 'granted'
           ? {
@@ -161,13 +219,12 @@ export function MapHomeScreen() {
               radiusKm: 5,
             }
       );
-      setBackendState({ status: 'ready', cells: nextCells, message: null });
-      setSelectedCellId((current) => current ?? nextCells[0]?.id ?? null);
+      setDiscoveryState({ status: 'ready', discoveries: numberedDiscoveries(nextDiscoveries), message: null });
     } catch (error) {
-      setBackendState({
+      setDiscoveryState({
         status: 'error',
-        cells: [],
-        message: error instanceof Error ? error.message : 'Firestore 연결에 실패했습니다.',
+        discoveries: [],
+        message: error instanceof Error ? error.message : '주변 발견 데이터를 불러오지 못했습니다.',
       });
     }
   }, [auth.session?.idToken, locationState]);
@@ -178,205 +235,138 @@ export function MapHomeScreen() {
 
   useEffect(() => {
     if (auth.status === 'authenticated') {
-      loadBackend();
+      loadDiscoveries();
     }
-  }, [auth.status, loadBackend]);
+  }, [auth.status, loadDiscoveries]);
+
+  useEffect(() => {
+    if (locationState.status === 'granted') {
+      mapRef.current?.animateToRegion(regionFromLocation(locationState), 520);
+    }
+  }, [locationState]);
+
+  useEffect(() => {
+    Animated.spring(cardMotion, {
+      toValue: selectedDiscovery ? 1 : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 150,
+      mass: 0.8,
+    }).start();
+  }, [cardMotion, selectedDiscovery]);
 
   return (
     <View style={styles.screen}>
       <MapView
+        ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={styles.map}
         initialRegion={region}
-        region={region}
         showsUserLocation={locationState.status === 'granted'}
-        showsMyLocationButton
+        showsMyLocationButton={false}
         mapType="standard"
       >
-        {cells.map((cell) => {
-          const selected = selectedCell?.id === cell.id;
-          return (
-            <Polygon
-              key={cell.id}
-              coordinates={hexPolygon(cell)}
-              fillColor={`${bloomColors[cell.bloomState] ?? colors.sprout}${selected ? 'aa' : '66'}`}
-              strokeColor={selected ? colors.pollen : colors.moss}
-              strokeWidth={selected ? 4 : 1}
-              tappable
-              onPress={() => setSelectedCellId(cell.id)}
-            />
-          );
-        })}
-        {cells.map((cell) => (
+        {discoveries.map((discovery) => (
           <Marker
-            key={`${cell.id}-marker`}
-            coordinate={{ latitude: cell.centerLat, longitude: cell.centerLng }}
+            key={discovery.id}
+            coordinate={{ latitude: discovery.publicLat, longitude: discovery.publicLng }}
             anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => setSelectedCellId(cell.id)}
+            onPress={() => showDiscovery(discovery)}
           >
-            <View style={[styles.cellDot, { backgroundColor: bloomColors[cell.bloomState] ?? colors.sprout }]}>
-              <Text style={styles.cellDotText}>{cell.observationCount || ''}</Text>
-            </View>
+            <DiscoveryMarker discovery={discovery} selected={selectedDiscovery?.id === discovery.id} />
           </Marker>
         ))}
       </MapView>
 
       <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
-        <View style={styles.topCluster}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleGroup}>
-              <Text style={styles.title}>내 생태 지도</Text>
-            </View>
-            <Pressable accessibilityLabel="알림" accessibilityRole="button" style={styles.iconButton}>
-              <Text style={styles.iconText}>○</Text>
-            </Pressable>
-          </View>
-
-          <GlassPanel style={styles.statusCapsule} contentStyle={styles.statusCapsuleContent}>
-            <StatusChip symbol="☼" label={`오늘 밝힌 구역 ${visibleCellCount}`} tone="yellow" />
-            <StatusChip symbol="⌖" label={locationCopy(locationState)} tone="blue" />
-            <StatusChip symbol="▱" label={apiReady ? 'Firestore 연결' : backendState.status === 'loading' ? '데이터 확인 중' : '데이터 미리보기'} tone="green" />
-          </GlassPanel>
+        <View style={styles.topControls}>
+          <MapControl symbol="▰" label="지도 보기" onPress={() => undefined} />
+          <MapControl symbol="⌖" label="내 위치" onPress={moveToCurrentLocation} />
         </View>
 
-        <View style={styles.mapControls}>
-          <MapControl symbol="⌖" label="현재 위치" />
-          <MapControl symbol="▱" label="지도 레이어" />
+        <View pointerEvents="box-none" style={styles.discoveryCardAnchor}>
+          {selectedDiscovery ? <DiscoveryCard discovery={selectedDiscovery} motion={cardMotion} /> : null}
         </View>
 
-        <RevealView>
-        <GlassPanel style={styles.bottomCard} contentStyle={styles.bottomCardContent}>
-          <View style={styles.sheetHandle} />
-          <View style={styles.cardTopRow}>
-            <View style={styles.leafMedallion}>
-              <View style={styles.leafIcon} />
-              <View style={styles.leafStem} />
+        <View pointerEvents="box-none" style={styles.statusAnchor}>
+          {discoveryState.status === 'loading' ? (
+            <View style={styles.statusPill}>
+              <ActivityIndicator color={colors.canopy} size="small" />
+              <Text style={styles.statusText}>발견 데이터 확인 중</Text>
             </View>
-            <View style={styles.cellTextGroup}>
-              <Text style={styles.cardTitle}>주변 서식지를 더 밝혀보세요</Text>
-              <Text style={styles.cardBody}>
-                기록을 심을수록 더 많은 생명이 이 지도를 통해 연결됩니다.
+          ) : null}
+
+          {discoveryState.status === 'ready' && discoveryState.discoveries.length === 0 ? (
+            <View style={styles.statusPill}>
+              <Text style={styles.statusText}>주변 발견이 아직 없습니다</Text>
+            </View>
+          ) : null}
+
+          {discoveryState.status === 'error' || locationState.status === 'denied' || locationState.status === 'error' ? (
+            <Pressable accessibilityRole="button" style={styles.noticePill} onPress={discoveryState.status === 'error' ? loadDiscoveries : loadLocation}>
+              <Text style={styles.noticeText} numberOfLines={2}>
+                {discoveryState.message ?? locationState.message ?? '지도를 다시 확인해 주세요.'}
               </Text>
-            </View>
-            <BotanicalAccent />
-          </View>
-
-          <View style={styles.selectedCellBox}>
-            <View style={styles.selectedCellHeader}>
-              <Text style={styles.selectedCellTitle}>개화도 {Math.max(selectedCell.bloomScore, 12)}%</Text>
-              <View style={styles.bloomDot} />
-            </View>
-            <ProgressBar value={Math.max(selectedCell.bloomScore, 12)} />
-          </View>
-
-          <View style={styles.metricRow}>
-            <Metric symbol="◜" label="기록" value={`${selectedCell.observationCount || discoveredCount}개`} />
-            <Metric symbol="⌁" label="종" value={`${selectedCell.speciesCount}개`} />
-            <Metric symbol="○○" label="기여자" value={`${selectedCell.contributorCount}명`} />
-          </View>
-
-          {auth.status === 'missing-config' ? (
-            <Notice
-              title="모바일 env 설정 필요"
-              body={`mobile/.env에 ${auth.missingKeys.join(', ')} 값을 넣어야 실제 연결이 시작됩니다.`}
-              onPress={auth.signIn}
-              actionLabel="다시 로그인"
-            />
-          ) : null}
-
-          {backendState.status === 'loading' ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.canopy} />
-              <Text style={styles.loadingText}>주변 셀을 불러오는 중</Text>
-            </View>
-          ) : null}
-
-          {backendState.status === 'error' ? (
-            <Notice
-              title="Firestore 연결 실패"
-              body={backendState.message ?? 'Firebase 설정과 네트워크 상태를 확인해 주세요.'}
-              onPress={loadBackend}
-              actionLabel="데이터 다시 연결"
-            />
-          ) : null}
-
-          <View style={styles.actions}>
-            <Pressable style={styles.secondaryAction} onPress={() => router.push('/cell')}>
-              <Text style={styles.secondaryActionText}>셀 도감 보기</Text>
             </Pressable>
-            <Pressable style={styles.primaryAction} onPress={() => router.push('/(tabs)/record')}>
-              <Text style={styles.primaryActionText}>기록 심기</Text>
-            </Pressable>
-          </View>
-        </GlassPanel>
-        </RevealView>
+          ) : null}
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
-function StatusChip({ symbol, label, tone }: { symbol: string; label: string; tone: 'green' | 'blue' | 'yellow' }) {
-  const toneStyle = tone === 'blue' ? styles.statusSymbolBlue : tone === 'yellow' ? styles.statusSymbolYellow : styles.statusSymbolGreen;
+function DiscoveryMarker({ discovery, selected }: { discovery: FirebaseCommunityDiscovery; selected: boolean }) {
   return (
-    <View style={styles.statusChip}>
-      <Text style={[styles.statusSymbol, toneStyle]}>{symbol}</Text>
-      <Text style={styles.statusChipText} numberOfLines={1}>
-        {label}
-      </Text>
-      {tone !== 'yellow' ? <View style={[styles.statusDot, tone === 'blue' ? styles.statusDotBlue : styles.statusDotGreen]} /> : null}
+    <View style={[styles.discoveryMarker, selected ? styles.discoveryMarkerSelected : null]}>
+      <Text style={styles.discoveryEmoji}>{emojiForDiscovery(discovery)}</Text>
     </View>
   );
 }
 
-function MapControl({ symbol, label }: { symbol: string; label: string }) {
+function DiscoveryCard({ discovery, motion }: { discovery: MapDiscovery; motion: Animated.Value }) {
+  const meta = categoryMeta(discovery);
+  const translateY = motion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [14, 0],
+  });
+
   return (
-    <Pressable accessibilityLabel={label} accessibilityRole="button" style={styles.mapControl}>
+    <Animated.View
+      style={[
+        styles.discoveryCard,
+        {
+          opacity: motion,
+          transform: [{ translateY }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
+        },
+      ]}
+    >
+      <View style={styles.cardHeader}>
+        <View>
+          <Text style={styles.discoveryNumber}>#{String(discovery.discoveryNumber).padStart(3, '0')}</Text>
+          <Text style={styles.discoveryName}>{discovery.displayName}</Text>
+        </View>
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryMark}>{meta.mark}</Text>
+          <Text style={styles.categoryText}>{meta.label}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.heroEmoji}>{emojiForDiscovery(discovery)}</Text>
+
+      <View style={styles.cardMeta}>
+        <Text style={styles.metaLabel}>잡은 시기</Text>
+        <Text style={styles.metaValue}>{dateLabel(discovery.createdAt)}</Text>
+      </View>
+      <Text style={styles.finderText}>{discovery.contributorName} 이(가) 발견함!</Text>
+    </Animated.View>
+  );
+}
+
+function MapControl({ symbol, label, onPress }: { symbol: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityLabel={label} accessibilityRole="button" style={styles.mapControl} onPress={onPress}>
       <Text style={styles.mapControlText}>{symbol}</Text>
     </Pressable>
-  );
-}
-
-function Metric({ symbol, label, value }: { symbol: string; label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricSymbol}>{symbol}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function BotanicalAccent() {
-  return (
-    <View pointerEvents="none" style={styles.botanicalAccent}>
-      <View style={[styles.accentLeaf, styles.accentLeafTop]} />
-      <View style={[styles.accentLeaf, styles.accentLeafBottom]} />
-      <View style={styles.accentStem} />
-    </View>
-  );
-}
-
-function Notice({
-  title,
-  body,
-  actionLabel,
-  onPress,
-}: {
-  title: string;
-  body: string;
-  actionLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <View style={styles.notice}>
-      <View style={styles.noticeTextGroup}>
-        <Text style={styles.noticeTitle}>{title}</Text>
-        <Text style={styles.noticeBody}>{body}</Text>
-      </View>
-      <Pressable style={styles.noticeButton} onPress={onPress}>
-        <Text style={styles.noticeButtonText}>{actionLabel}</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -390,393 +380,169 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingBottom: 108,
+    paddingHorizontal: 28,
+    paddingBottom: 112,
   },
-  topCluster: {
-    gap: 14,
-    paddingTop: 6,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  iconButton: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 27,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: glass.surfaceStrong,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  iconText: {
-    color: colors.canopy,
-    fontSize: 27,
-    fontWeight: '500',
-    lineHeight: 30,
-  },
-  titleGroup: {
-    flex: 1,
-    alignItems: 'flex-start',
-    gap: 4,
-  },
-  title: {
-    color: colors.ink,
-    fontSize: 39,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  subtitle: {
-    color: colors.canopy,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  statusCapsule: {
-    borderRadius: radii.round,
-  },
-  statusCapsuleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-  },
-  statusChip: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    borderRadius: radii.round,
-    paddingHorizontal: 8,
-  },
-  statusSymbol: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statusSymbolGreen: {
-    color: colors.canopy,
-  },
-  statusSymbolBlue: {
-    color: '#267eea',
-  },
-  statusSymbolYellow: {
-    color: colors.pollen,
-  },
-  statusChipText: {
-    minWidth: 0,
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusDotBlue: {
-    backgroundColor: '#267eea',
-  },
-  statusDotGreen: {
-    backgroundColor: colors.leaf,
-  },
-  mapControls: {
-    position: 'absolute',
-    right: 18,
-    top: 218,
-    gap: 14,
+  topControls: {
+    alignSelf: 'flex-start',
+    gap: 12,
+    paddingTop: 82,
   },
   mapControl: {
-    width: 58,
-    height: 58,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 29,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: glass.surfaceStrong,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     shadowColor: colors.shadow,
     shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  mapControlText: {
-    color: colors.canopy,
-    fontSize: 27,
-    fontWeight: '600',
-  },
-  cellDot: {
-    minWidth: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: colors.white,
-    paddingHorizontal: 5,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  cellDotText: {
-    color: colors.canopy,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  bottomCard: {
-    borderRadius: radii.sheet,
-  },
-  bottomCardContent: {
-    gap: 14,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 18,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 54,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(22, 63, 45, 0.24)',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-  },
-  leafMedallion: {
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 36,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: 'rgba(223, 241, 207, 0.78)',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
   },
-  leafIcon: {
-    width: 34,
-    height: 22,
-    borderTopLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    borderWidth: 3,
-    borderColor: colors.moss,
-    transform: [{ rotate: '-38deg' }],
-  },
-  leafStem: {
-    position: 'absolute',
-    width: 3,
-    height: 32,
-    borderRadius: 2,
-    backgroundColor: colors.moss,
-    transform: [{ rotate: '42deg' }, { translateY: 5 }],
-  },
-  cellTextGroup: {
-    flex: 1,
-    gap: 6,
-  },
-  cardTitle: {
-    color: colors.ink,
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  cardBody: {
+  mapControlText: {
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-  botanicalAccent: {
-    width: 62,
-    height: 76,
-    opacity: 0.42,
-  },
-  accentStem: {
-    position: 'absolute',
-    left: 30,
-    top: 10,
-    width: 2,
-    height: 58,
-    borderRadius: 1,
-    backgroundColor: colors.moss,
-    transform: [{ rotate: '18deg' }],
-  },
-  accentLeaf: {
-    position: 'absolute',
-    width: 34,
-    height: 18,
-    borderTopLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    backgroundColor: colors.sprout,
-  },
-  accentLeafTop: {
-    top: 12,
-    right: 0,
-    transform: [{ rotate: '-18deg' }],
-  },
-  accentLeafBottom: {
-    left: 4,
-    top: 42,
-    transform: [{ rotate: '162deg' }],
-  },
-  selectedCellBox: {
-    gap: 10,
-    borderRadius: radii.large,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.82)',
-    padding: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.58)',
-  },
-  selectedCellHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  selectedCellTitle: {
-    flex: 1,
-    color: colors.canopy,
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '800',
   },
-  bloomDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.bloom,
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  metric: {
-    flex: 1,
-    minHeight: 56,
-    flexDirection: 'row',
+  discoveryMarker: {
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderRadius: radii.large,
+    borderRadius: 19,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 210, 74, 0.92)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  discoveryMarkerSelected: {
+    borderColor: colors.white,
+    backgroundColor: 'rgba(255, 198, 45, 0.98)',
+    transform: [{ scale: 1.12 }],
+  },
+  discoveryEmoji: {
+    fontSize: 24,
+  },
+  discoveryCardAnchor: {
+    position: 'absolute',
+    top: 116,
+    right: 24,
+    width: 168,
+  },
+  discoveryCard: {
+    minHeight: 162,
+    overflow: 'hidden',
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(22, 63, 45, 0.08)',
-    paddingHorizontal: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.62)',
+    borderColor: glass.border,
+    padding: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
   },
-  metricSymbol: {
-    color: colors.moss,
-    fontSize: 19,
-    fontWeight: '700',
-  },
-  metricValue: {
-    color: colors.canopy,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  metricLabel: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  notice: {
+  cardHeader: {
     flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    borderRadius: radii.medium,
-    borderWidth: 1,
-    borderColor: colors.warmLine,
-    padding: 12,
-    backgroundColor: colors.cream,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  noticeTextGroup: {
-    flex: 1,
-    gap: 3,
+  discoveryNumber: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '900',
   },
-  noticeTitle: {
+  discoveryName: {
     color: colors.ink,
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  categoryBadge: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 233, 162, 0.72)',
+  },
+  categoryMark: {
+    fontSize: 12,
+  },
+  categoryText: {
+    color: colors.clay,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  heroEmoji: {
+    marginTop: 10,
+    marginBottom: 8,
+    fontSize: 58,
+    lineHeight: 66,
+    textAlign: 'center',
+  },
+  cardMeta: {
+    gap: 2,
+  },
+  metaLabel: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  metaValue: {
+    color: colors.text,
+    fontSize: 10,
     fontWeight: '800',
   },
-  noticeBody: {
+  finderText: {
+    marginTop: 3,
     color: colors.muted,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  statusAnchor: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 118,
+    gap: 8,
+  },
+  statusPill: {
+    alignSelf: 'center',
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.84)',
+  },
+  statusText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  noticePill: {
+    alignSelf: 'center',
+    maxWidth: 300,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.76)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 248, 232, 0.9)',
+  },
+  noticeText: {
+    color: colors.text,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '700',
-  },
-  noticeButton: {
-    borderRadius: radii.round,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: colors.canopy,
-  },
-  noticeButtonText: {
-    color: colors.white,
-    fontSize: 12,
     fontWeight: '800',
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  primaryAction: {
-    flex: 1.15,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.round,
-    backgroundColor: colors.leaf,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  primaryActionText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  secondaryAction: {
-    flex: 1,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.round,
-    borderWidth: 1,
-    borderColor: glass.hairline,
-    backgroundColor: 'rgba(255, 255, 255, 0.64)',
-  },
-  secondaryActionText: {
-    color: colors.canopy,
-    fontSize: 15,
-    fontWeight: '800',
+    textAlign: 'center',
   },
 });

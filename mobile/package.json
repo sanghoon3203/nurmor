@@ -7,27 +7,32 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js .tmp-tests/src/features/launch/*.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js .tmp-tests/src/features/launch/*.test.js .tmp-tests/src/features/brand/*.test.js .tmp-tests/src/features/auth/*.test.js .tmp-tests/src/features/map/*.test.js .tmp-tests/src/features/codex/*.test.js",
     "typecheck": "tsc --noEmit",
     "expo:check": "expo install --check"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~54.0.33",
+    "expo-auth-session": "~7.0.11",
     "expo-constants": "~18.0.13",
+    "expo-crypto": "~15.0.9",
     "expo-image-picker": "~17.0.11",
     "expo-linking": "~8.0.12",
     "expo-location": "~19.0.8",
     "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.11",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-maps": "1.20.1",
     "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.16.0"
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "react-native-svg-transformer": "^1.5.3",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -5,14 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingGlassBar } from '../atlas/glass';
 import { colors, glass } from '../../theme/tokens';
 
-type TabSymbol = 'book' | 'home' | 'leaf' | 'people' | 'person';
+type TabSymbol = 'book' | 'map' | 'camera' | 'eyes' | 'person';
 
-const tabMeta: Record<string, { label: string; glyph: TabSymbol; primary?: boolean }> = {
+const tabMeta: Record<string, { label: string; glyph: TabSymbol }> = {
   codex: { label: '도감', glyph: 'book' },
-  index: { label: '홈', glyph: 'home' },
-  record: { label: '기록', glyph: 'leaf', primary: true },
-  community: { label: '커뮤니티', glyph: 'people' },
-  profile: { label: '마이', glyph: 'person' },
+  index: { label: '지도', glyph: 'map' },
+  record: { label: '기록', glyph: 'camera' },
+  community: { label: '커뮤니티', glyph: 'eyes' },
+  profile: { label: '마이페이지', glyph: 'person' },
 };
 
 export function AtlasTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -45,17 +45,15 @@ export function AtlasTabBar({ state, descriptors, navigation }: BottomTabBarProp
                 accessibilityState={focused ? { selected: true } : {}}
                 key={route.key}
                 onPress={onPress}
-                style={[styles.item, meta.primary ? styles.primaryItem : null]}
+                style={styles.item}
               >
                 <View
                   style={[
                     styles.glyph,
                     focused ? styles.glyphFocused : null,
-                    meta.primary ? styles.primaryGlyph : null,
-                    meta.primary && focused ? styles.primaryGlyphFocused : null,
                   ]}
                 >
-                  <TabGlyph name={meta.glyph} active={focused} primary={meta.primary} />
+                  <TabGlyph name={meta.glyph} active={focused} />
                 </View>
                 <Text style={[styles.label, focused ? styles.labelFocused : null]} numberOfLines={1}>
                   {meta.label}
@@ -69,17 +67,8 @@ export function AtlasTabBar({ state, descriptors, navigation }: BottomTabBarProp
   );
 }
 
-function TabGlyph({ name, active, primary }: { name: TabSymbol; active: boolean; primary?: boolean }) {
-  if (name === 'leaf') {
-    return (
-      <View style={styles.leafSymbol}>
-        <View style={[styles.leafBlade, primary && active ? styles.leafBladePrimaryActive : null]} />
-        <View style={[styles.leafStem, primary && active ? styles.leafStemPrimaryActive : null]} />
-      </View>
-    );
-  }
-
-  const symbol = name === 'book' ? '▱' : name === 'home' ? '⌂' : name === 'people' ? '○○' : '○';
+function TabGlyph({ name, active }: { name: TabSymbol; active: boolean }) {
+  const symbol = name === 'book' ? '📘' : name === 'map' ? '🗺️' : name === 'camera' ? '📷' : name === 'eyes' ? '👀' : '👤';
   return <Text style={[styles.symbolText, active ? styles.symbolTextActive : null]}>{symbol}</Text>;
 }
 
@@ -96,7 +85,7 @@ const styles = StyleSheet.create({
     backgroundColor: glass.surfaceChrome,
   },
   row: {
-    minHeight: 68,
+    minHeight: 66,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -107,79 +96,30 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-  },
-  primaryItem: {
-    transform: [{ translateY: -15 }],
+    gap: 4,
   },
   glyph: {
-    width: 34,
+    width: 40,
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 17,
+    borderRadius: 8,
     backgroundColor: 'transparent',
   },
   glyphFocused: {
-    backgroundColor: 'rgba(109, 175, 69, 0.13)',
-  },
-  primaryGlyph: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  primaryGlyphFocused: {
-    backgroundColor: 'rgba(223, 241, 207, 0.96)',
+    backgroundColor: 'rgba(109, 175, 69, 0.16)',
   },
   symbolText: {
-    color: colors.canopy,
-    fontSize: 25,
-    fontWeight: '500',
-    lineHeight: 27,
+    fontSize: 24,
+    lineHeight: 28,
   },
   symbolTextActive: {
-    color: colors.moss,
-  },
-  leafSymbol: {
-    width: 34,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  leafBlade: {
-    width: 30,
-    height: 20,
-    borderTopLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    borderWidth: 3,
-    borderColor: colors.moss,
-    transform: [{ rotate: '-38deg' }],
-  },
-  leafBladePrimaryActive: {
-    borderColor: colors.moss,
-  },
-  leafStem: {
-    position: 'absolute',
-    width: 3,
-    height: 30,
-    borderRadius: 2,
-    backgroundColor: colors.moss,
-    transform: [{ rotate: '42deg' }, { translateY: 5 }],
-  },
-  leafStemPrimaryActive: {
-    backgroundColor: colors.moss,
+    transform: [{ scale: 1.04 }],
   },
   label: {
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 0,
   },
   labelFocused: {

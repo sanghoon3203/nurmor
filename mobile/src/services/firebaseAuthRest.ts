@@ -7,6 +7,17 @@ type AnonymousSignInResponse = {
   expiresIn: string;
 };
 
+type EmailAuthResponse = AnonymousSignInResponse;
+
+type IdpProviderId = 'google.com';
+
+type IdpSignInRequest = {
+  providerId: IdpProviderId;
+  idToken: string;
+  requestUri: string;
+  nonce?: string;
+};
+
 type RefreshTokenResponse = {
   id_token: string;
   refresh_token: string;
@@ -29,6 +40,15 @@ async function readFirebaseError(response: Response) {
   }
 }
 
+function sessionFromIdentityResponse(body: AnonymousSignInResponse): AuthSession {
+  return {
+    idToken: body.idToken,
+    refreshToken: body.refreshToken,
+    localId: body.localId,
+    expiresAt: expiresAt(body.expiresIn),
+  };
+}
+
 export async function signInAnonymously(apiKey: string): Promise<AuthSession> {
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`,
@@ -44,12 +64,72 @@ export async function signInAnonymously(apiKey: string): Promise<AuthSession> {
   }
 
   const body = (await response.json()) as AnonymousSignInResponse;
-  return {
-    idToken: body.idToken,
-    refreshToken: body.refreshToken,
-    localId: body.localId,
-    expiresAt: expiresAt(body.expiresIn),
-  };
+  return sessionFromIdentityResponse(body);
+}
+
+export async function signInWithEmailPassword(apiKey: string, email: string, password: string): Promise<AuthSession> {
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await readFirebaseError(response));
+  }
+
+  return sessionFromIdentityResponse((await response.json()) as EmailAuthResponse);
+}
+
+export async function signUpWithEmailPassword(apiKey: string, email: string, password: string): Promise<AuthSession> {
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await readFirebaseError(response));
+  }
+
+  return sessionFromIdentityResponse((await response.json()) as EmailAuthResponse);
+}
+
+export async function signInWithIdp(apiKey: string, request: IdpSignInRequest): Promise<AuthSession> {
+  const postBody = new URLSearchParams({
+    id_token: request.idToken,
+    providerId: request.providerId,
+  });
+
+  if (request.nonce) {
+    postBody.set('nonce', request.nonce);
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        postBody: postBody.toString(),
+        requestUri: request.requestUri,
+        returnIdpCredential: true,
+        returnSecureToken: true,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await readFirebaseError(response));
+  }
+
+  return sessionFromIdentityResponse((await response.json()) as EmailAuthResponse);
 }
 
 export async function refreshAuthSession(apiKey: string, refreshToken: string): Promise<AuthSession> {

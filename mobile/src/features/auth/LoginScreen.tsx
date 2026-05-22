@@ -1,14 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RevealView } from '../atlas/glass';
+import { AtlasLeaves, AtlasLogoSum } from '../brand/BrandAssets';
+import { AuthSocialButton } from './AuthSocialButton';
 import { useAuth } from './AuthProvider';
-import { colors, glass, radii } from '../../theme/tokens';
-
-const logoSource = require('../../../assets/brand/logo.png');
-const leavesSource = require('../../../assets/brand/leaves.png');
+import { colors, glass } from '../../theme/tokens';
 
 export function LoginScreen() {
   const auth = useAuth();
@@ -16,28 +15,51 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [autoLogin, setAutoLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<string | null>(null);
   const canSubmit = email.trim().length > 0 && password.length > 0;
+  const errorMessage = localError ?? auth.errorMessage;
 
-  const connectSession = async () => {
-    await auth.signIn();
-    router.replace('/(tabs)');
+  const runAuthAction = async (key: string, action: () => Promise<void>) => {
+    try {
+      setSubmitting(key);
+      setLocalError(null);
+      await action();
+      router.replace('/(tabs)');
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : '로그인을 완료하지 못했습니다.');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const connectEmail = async () => {
+    await runAuthAction('email', () => auth.signInWithPassword(email, password, { persist: autoLogin }));
+  };
+
+  const connectGuest = async () => {
+    await runAuthAction('guest', () => auth.signIn({ persist: autoLogin }));
+  };
+
+  const connectGoogle = async () => {
+    await runAuthAction('google', () => auth.signInWithGoogle({ persist: autoLogin }));
   };
 
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
         <View pointerEvents="none" style={styles.topLeaves}>
-          <Image source={leavesSource} resizeMode="contain" style={styles.decorImage} />
+          <AtlasLeaves width="100%" height="100%" />
         </View>
         <View pointerEvents="none" style={styles.bottomLeaves}>
-          <Image source={leavesSource} resizeMode="contain" style={styles.decorImage} />
+          <AtlasLeaves width="100%" height="100%" />
         </View>
         <View pointerEvents="none" style={styles.topBlob} />
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <RevealView>
             <View style={styles.brand}>
-              <Image source={logoSource} resizeMode="contain" style={styles.logo} />
+              <AtlasLogoSum width={184} height={83} />
               <Text style={styles.subtitle}>참여형 생태 커뮤니티</Text>
             </View>
           </RevealView>
@@ -72,11 +94,11 @@ export function LoginScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                disabled={!canSubmit}
-                style={[styles.primaryButton, !canSubmit ? styles.disabled : null]}
-                onPress={connectSession}
+                disabled={!canSubmit || submitting !== null}
+                style={[styles.primaryButton, !canSubmit || submitting !== null ? styles.disabled : null]}
+                onPress={connectEmail}
               >
-                <Text style={styles.primaryButtonText}>로그인</Text>
+                <Text style={styles.primaryButtonText}>{submitting === 'email' ? '로그인 중' : '로그인'}</Text>
               </Pressable>
 
               <Pressable accessibilityRole="button" style={styles.joinButton} onPress={() => router.replace('/signup')}>
@@ -89,11 +111,12 @@ export function LoginScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <SocialButton label="Google로 로그인하기" mark="G" onPress={connectSession} />
-              <SocialButton label="Apple로 로그인하기" mark="" variant="dark" onPress={connectSession} />
-              <SocialButton label="이메일로 로그인하기" mark="✉" onPress={connectSession} />
+              <AuthSocialButton label={submitting === 'google' ? 'Google 연결 중' : 'Google로 로그인하기'} mark="G" disabled={submitting !== null} onPress={connectGoogle} />
+              <AuthSocialButton label="이메일로 로그인하기" mark="✉" disabled={submitting !== null || !canSubmit} onPress={connectEmail} />
 
-              <Pressable accessibilityRole="button" style={styles.guestButton} onPress={connectSession}>
+              {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+              <Pressable accessibilityRole="button" disabled={submitting !== null} style={styles.guestButton} onPress={connectGuest}>
                 <Text style={styles.guestButtonText}>둘러보기</Text>
               </Pressable>
             </View>
@@ -145,26 +168,6 @@ function Field({
   );
 }
 
-function SocialButton({
-  label,
-  mark,
-  variant = 'light',
-  onPress,
-}: {
-  label: string;
-  mark: string;
-  variant?: 'light' | 'dark';
-  onPress: () => void;
-}) {
-  const dark = variant === 'dark';
-  return (
-    <Pressable accessibilityRole="button" style={[styles.socialButton, dark ? styles.socialButtonDark : null]} onPress={onPress}>
-      <Text style={[styles.socialMark, dark ? styles.socialMarkDark : null]}>{mark}</Text>
-      <Text style={[styles.socialText, dark ? styles.socialTextDark : null]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -184,10 +187,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
     paddingLeft: 10,
-  },
-  logo: {
-    width: 184,
-    height: 83,
   },
   title: {
     color: colors.ink,
@@ -331,42 +330,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  socialButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(22, 63, 45, 0.08)',
-    backgroundColor: colors.white,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  socialButtonDark: {
-    borderColor: colors.ink,
-    backgroundColor: colors.ink,
-  },
-  socialMark: {
-    width: 24,
-    color: colors.canopy,
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  socialMarkDark: {
-    color: colors.white,
-  },
-  socialText: {
-    color: colors.ink,
-    fontSize: 13,
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '800',
-  },
-  socialTextDark: {
-    color: colors.white,
+    textAlign: 'center',
   },
   guestButton: {
     minHeight: 34,
@@ -408,9 +377,5 @@ const styles = StyleSheet.create({
     height: 160,
     opacity: 0.24,
     transform: [{ rotate: '16deg' }],
-  },
-  decorImage: {
-    width: '100%',
-    height: '100%',
   },
 });
