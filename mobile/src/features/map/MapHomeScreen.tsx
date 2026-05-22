@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassPanel, RevealView } from '../atlas/glass';
 import { ProgressBar } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
-import { HabitatCell, getHealth, getNearbyHabitatCells } from '../../services/api';
+import { HabitatCell } from '../../services/api';
+import { listNearbyHabitatCells } from '../../services/firebaseAtlasDb';
 import { bloomColors, colors, glass, radii } from '../../theme/tokens';
 import { BackendState, LocationState } from './types';
 
@@ -89,7 +90,6 @@ export function MapHomeScreen() {
   });
   const [backendState, setBackendState] = useState<BackendState>({
     status: 'idle',
-    health: null,
     cells: [],
     message: null,
   });
@@ -142,27 +142,35 @@ export function MapHomeScreen() {
 
     setBackendState((current) => ({
       status: 'loading',
-      health: null,
       cells: current.cells,
       message: null,
     }));
 
     try {
-      const [health, nextCells] = await Promise.all([
-        getHealth(),
-        getNearbyHabitatCells(auth.session.idToken),
-      ]);
-      setBackendState({ status: 'ready', health, cells: nextCells, message: null });
+      const nextCells = await listNearbyHabitatCells(
+        auth.session.idToken,
+        locationState.status === 'granted'
+          ? {
+              latitude: locationState.location.coords.latitude,
+              longitude: locationState.location.coords.longitude,
+              radiusKm: 5,
+            }
+          : {
+              latitude: fallbackRegion.latitude,
+              longitude: fallbackRegion.longitude,
+              radiusKm: 5,
+            }
+      );
+      setBackendState({ status: 'ready', cells: nextCells, message: null });
       setSelectedCellId((current) => current ?? nextCells[0]?.id ?? null);
     } catch (error) {
       setBackendState({
         status: 'error',
-        health: null,
         cells: [],
-        message: error instanceof Error ? error.message : 'Atlas API 연결에 실패했습니다.',
+        message: error instanceof Error ? error.message : 'Firestore 연결에 실패했습니다.',
       });
     }
-  }, [auth.session?.idToken]);
+  }, [auth.session?.idToken, locationState]);
 
   useEffect(() => {
     loadLocation();
@@ -227,7 +235,7 @@ export function MapHomeScreen() {
           <GlassPanel style={styles.statusCapsule} contentStyle={styles.statusCapsuleContent}>
             <StatusChip symbol="☼" label={`오늘 밝힌 구역 ${visibleCellCount}`} tone="yellow" />
             <StatusChip symbol="⌖" label={locationCopy(locationState)} tone="blue" />
-            <StatusChip symbol="▱" label={apiReady ? 'Atlas API 연결' : backendState.status === 'loading' ? 'API 확인 중' : 'API 미리보기'} tone="green" />
+            <StatusChip symbol="▱" label={apiReady ? 'Firestore 연결' : backendState.status === 'loading' ? '데이터 확인 중' : '데이터 미리보기'} tone="green" />
           </GlassPanel>
         </View>
 
@@ -285,10 +293,10 @@ export function MapHomeScreen() {
 
           {backendState.status === 'error' ? (
             <Notice
-              title="백엔드 연결 실패"
-              body={backendState.message ?? 'Atlas API 주소와 네트워크 상태를 확인해 주세요.'}
+              title="Firestore 연결 실패"
+              body={backendState.message ?? 'Firebase 설정과 네트워크 상태를 확인해 주세요.'}
               onPress={loadBackend}
-              actionLabel="API 다시 연결"
+              actionLabel="데이터 다시 연결"
             />
           ) : null}
 

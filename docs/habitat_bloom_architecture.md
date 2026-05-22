@@ -195,13 +195,13 @@ Fields:
 - `speciesKey`
 - `displayName`
 - `scientificName`
-- `observationRecordIds`
+- `category`
+- `representativeMediaKey`
+- `discoveryNumber`
 - `bestConfidence`
-- `confirmationCount`
+- `observationCount`
 - `firstObservedAt`
 - `lastObservedAt`
-- `contributors`
-- `representativeMediaAssetId`
 
 Rules:
 
@@ -216,28 +216,36 @@ Rules:
 Recommended endpoints:
 
 ```text
-POST /api/media/upload
+POST /api/media/register
 POST /api/observations
 POST /api/observations/:id/analyze
 GET  /api/analysis-jobs/:id
 POST /api/observations/:id/plant
-GET  /api/habitat-cells/nearby
+GET  /api/habitat-cells/nearby?lat={lat}&lng={lng}&radiusKm=5
 GET  /api/habitat-cells/:id
 GET  /api/habitat-cells/:id/codex
-GET  /api/codex-entries/:id
+GET  /api/codex?category={PLANT|ANIMAL|OTHER}&page=0&size=20
+GET  /api/me
+PUT  /api/me
+GET  /api/me/stats
+GET  /api/me/recent-observations
+GET  /api/community/discoveries?lat={lat}&lng={lng}&radiusKm=5
 PATCH /api/observations/:id/visibility
 ```
 
 Endpoint behavior:
 
-- `POST /api/media/upload`: uploads media, validates MIME type and size, returns `MediaAsset`.
+- `POST /api/media/register`: stores Firebase Storage object metadata as `MediaAsset`.
 - `POST /api/observations`: creates a captured observation with location and media IDs.
 - `POST /api/observations/:id/analyze`: queues or starts Gemini analysis.
 - `GET /api/analysis-jobs/:id`: returns analysis status and validated result when ready.
 - `POST /api/observations/:id/plant`: user confirms candidate and plants record into cell.
-- `GET /api/habitat-cells/nearby`: returns cell summaries for map viewport.
+- `GET /api/habitat-cells/nearby`: returns location/radius-scoped cell summaries for map viewport.
 - `GET /api/habitat-cells/:id`: returns one cell summary and contributor-safe public data.
 - `GET /api/habitat-cells/:id/codex`: returns codex entries inside one cell.
+- `GET /api/codex`: returns global codex entries for the Dex grid.
+- `GET /api/me/*`: returns profile, stats, and recent observation data for Mypage.
+- `GET /api/community/discoveries`: returns nearby planted discoveries for the community view.
 - `PATCH /api/observations/:id/visibility`: changes record or contributor visibility.
 
 ### 4.2 Media Upload Logic
@@ -245,12 +253,11 @@ Endpoint behavior:
 Flow:
 
 1. Authenticate user.
-2. Validate file type: image, video, or audio only.
-3. Validate file size and duration.
-4. Store original media.
-5. Generate thumbnail or waveform preview where applicable.
-6. Generate analysis-optimized derivative if needed.
-7. Return media asset IDs to the client.
+2. Mobile uploads the original media to Firebase Storage.
+3. Mobile sends Storage metadata to `POST /api/media/register`.
+4. Backend stores `MediaAsset` metadata.
+5. Gemini analysis later reads the Firebase Storage object from the backend.
+6. Future hardening should verify object ownership, MIME type, size, checksum, and derivatives.
 
 Security:
 

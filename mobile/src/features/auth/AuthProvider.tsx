@@ -94,13 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const nextSession = await signInAnonymously(env.firebaseApiKey);
-        await storeSession(nextSession);
         if (!isMounted) {
           return;
         }
-        setSession(nextSession);
-        setStatus('authenticated');
+        setSession(null);
+        setStatus('unauthenticated');
       } catch (error) {
         if (!isMounted) {
           return;

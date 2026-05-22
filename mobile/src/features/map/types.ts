@@ -1,6 +1,6 @@
 import { LocationObject } from 'expo-location';
 
-import { HabitatCell, HealthResponse } from '../../services/api';
+import { HabitatCell } from '../../services/api';
 
 export type LocationState =
   | { status: 'loading'; location: null; message: string | null }
@@ -9,7 +9,7 @@ export type LocationState =
   | { status: 'error'; location: null; message: string };
 
 export type BackendState =
-  | { status: 'idle'; health: null; cells: HabitatCell[]; message: null }
-  | { status: 'loading'; health: null; cells: HabitatCell[]; message: null }
-  | { status: 'ready'; health: HealthResponse; cells: HabitatCell[]; message: null }
-  | { status: 'error'; health: null; cells: HabitatCell[]; message: string };
+  | { status: 'idle'; cells: HabitatCell[]; message: null }
+  | { status: 'loading'; cells: HabitatCell[]; message: null }
+  | { status: 'ready'; cells: HabitatCell[]; message: null }
+  | { status: 'error'; cells: HabitatCell[]; message: string };

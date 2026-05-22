@@ -1,0 +1,142 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function hasOnly(keys) {
+      return request.resource.data.keys().hasOnly(keys);
+    }
+
+    function ownsIncomingUserId() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'avatarUrl',
+          'reportCount',
+          'speciesCount',
+          'achievementCount',
+          'publicContributor',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /habitatCells/{cellKey} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && hasOnly([
+          'cellKey',
+          'centerLat',
+          'centerLng',
+          'bloomState',
+          'bloomScore',
+          'observationCount',
+          'speciesCount',
+          'contributorCount',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /observations/{observationId} {
+      allow read: if signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || resource.data.visibility in ['CELL', 'PUBLIC']
+        );
+      allow create: if ownsIncomingUserId()
+        && hasOnly([
+          'userId',
+          'cellKey',
+          'mediaStorageKey',
+          'mediaType',
+          'mediaMimeType',
+          'mediaSizeBytes',
+          'mediaChecksum',
+          'privateLat',
+          'privateLng',
+          'publicLat',
+          'publicLng',
+          'locationAccuracyMeters',
+          'visibility',
+          'analysisStatus',
+          'status',
+          'capturedAt',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow update: if signedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /codexEntries/{entryId} {
+      allow read: if true;
+      allow create: if ownsIncomingUserId()
+        && hasOnly([
+          'userId',
+          'habitatCellId',
+          'cellKey',
+          'speciesKey',
+          'displayName',
+          'scientificName',
+          'category',
+          'imageUrl',
+          'discoveryNumber',
+          'observationCount',
+          'bestConfidence',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /communityDiscoveries/{discoveryId} {
+      allow read: if true;
+      allow create: if ownsIncomingUserId()
+        && hasOnly([
+          'observationId',
+          'cellKey',
+          'userId',
+          'contributorName',
+          'displayName',
+          'scientificName',
+          'category',
+          'imageUrl',
+          'publicLat',
+          'publicLng',
+          'likeCount',
+          'commentCount',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if ownsIncomingUserId()
+          && hasOnly(['userId', 'body', 'createdAt', 'updatedAt']);
+        allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      }
+
+      match /likes/{uid} {
+        allow read: if true;
+        allow create, update, delete: if isOwner(uid);
+      }
+    }
+  }
+}

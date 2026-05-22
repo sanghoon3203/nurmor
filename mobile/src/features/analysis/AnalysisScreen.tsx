@@ -16,6 +16,7 @@ export function AnalysisScreen() {
   );
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const candidate = candidates.find((item) => item.id === selectedCandidateId) ?? candidates[0] ?? null;
+  const isFirebaseOnly = flow.state.analysis?.model === 'Firebase-only MVP';
   const displayCandidate = candidate
     ? {
         id: candidate.id,
@@ -45,7 +46,15 @@ export function AnalysisScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <StepHeader step={3} title="기록을 읽는 중" subtitle="Gemini 3.1 Flash가 관찰 기록을 생물 후보와 근거로 정리합니다." />
+        <StepHeader
+          step={3}
+          title="기록을 읽는 중"
+          subtitle={
+            isFirebaseOnly
+              ? 'Firebase-only MVP에서는 업로드와 위치 등록을 먼저 확인하고, Gemini 판정은 서버 재개 후 연결합니다.'
+              : 'Gemini 3.1 Flash가 관찰 기록을 생물 후보와 근거로 정리합니다.'
+          }
+        />
 
         <View style={styles.analysisStage}>
           <View style={styles.outerRing}>
@@ -117,9 +126,11 @@ export function AnalysisScreen() {
         ) : null}
 
         <SoftPanel>
-          <Text style={styles.policyTitle}>분석 실패 시 흐름</Text>
+          <Text style={styles.policyTitle}>{isFirebaseOnly ? 'Firebase-only MVP 안내' : '분석 실패 시 흐름'}</Text>
           <Text style={styles.policyBody}>
-            schema validation이 실패하면 AnalysisJob은 failed로 닫고, 앱은 재촬영 또는 다른 파일 선택을 안내합니다.
+            {isFirebaseOnly
+              ? '현재는 결제 한도 문제로 Spring/Gemini 서버를 쓰지 않고 Firestore 기록 심기까지 검증합니다.'
+              : 'schema validation이 실패하면 AnalysisJob은 failed로 닫고, 앱은 재촬영 또는 다른 파일 선택을 안내합니다.'}
           </Text>
         </SoftPanel>
 

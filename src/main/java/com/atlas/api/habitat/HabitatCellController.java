@@ -3,6 +3,7 @@ package com.atlas.api.habitat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -19,8 +20,15 @@ public class HabitatCellController {
     }
 
     @GetMapping("/nearby")
-    public List<HabitatCellResponse> nearby() {
-        return service.nearby().stream().map(HabitatCellResponse::from).toList();
+    public List<HabitatCellResponse> nearby(
+        @RequestParam(required = false) Double lat,
+        @RequestParam(required = false) Double lng,
+        @RequestParam(defaultValue = "5") double radiusKm
+    ) {
+        List<HabitatCell> cells = lat == null || lng == null
+            ? service.nearby()
+            : service.nearby(lat, lng, radiusKm);
+        return cells.stream().map(HabitatCellResponse::from).toList();
     }
 
     @GetMapping("/{id}")

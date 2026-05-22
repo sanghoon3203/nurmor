@@ -7,13 +7,14 @@ export type PublicEnv = {
 };
 
 const requiredKeys = [
-  'EXPO_PUBLIC_ATLAS_API_BASE_URL',
   'EXPO_PUBLIC_FIREBASE_API_KEY',
   'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
   'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
 ] as const;
 
-function readEnv(key: (typeof requiredKeys)[number]): string {
+type PublicEnvKey = (typeof requiredKeys)[number] | 'EXPO_PUBLIC_ATLAS_API_BASE_URL';
+
+function readEnv(key: PublicEnvKey): string {
   return process.env[key]?.trim() ?? '';
 }
 

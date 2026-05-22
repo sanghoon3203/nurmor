@@ -2,19 +2,8 @@ import * as Location from 'expo-location';
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { assertConfigured, getPublicEnv } from '../../config/env';
-import {
-  AnalysisResponse,
-  CodexEntryResponse,
-  HabitatCell,
-  MediaAssetResponse,
-  ObservationResponse,
-  analyzeObservation,
-  createObservation,
-  getAnalysisJob,
-  getCodexEntries,
-  plantObservation,
-  registerMediaAsset,
-} from '../../services/api';
+import { AnalysisResponse, CodexEntryResponse, HabitatCell, MediaAssetResponse, ObservationResponse } from '../../services/api';
+import { createFirebaseObservationDraft, plantFirebaseObservation } from '../../services/firebaseAtlasDb';
 import {
   AtlasMediaType,
   arrayBufferFromBlob,
@@ -47,7 +36,6 @@ type ObservationFlowStatus =
   | 'idle'
   | 'locating'
   | 'uploading'
-  | 'registering-media'
   | 'creating-observation'
   | 'analyzing'
   | 'ready-for-review'
@@ -90,7 +78,6 @@ const initialState: ObservationFlowState = {
 const busyStatuses = new Set<ObservationFlowStatus>([
   'locating',
   'uploading',
-  'registering-media',
   'creating-observation',
   'analyzing',
   'planting',
@@ -165,30 +152,30 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
           storageKey: uploadResult.storageKey,
         };
 
-        setState((current) => ({
-          ...current,
-          status: 'registering-media',
-          message: 'Atlas API에 MediaAsset을 등록하는 중',
-          media: mediaSummary,
-        }));
-
-        const mediaAsset = await registerMediaAsset(auth.session.idToken, {
+        const mediaAsset: MediaAssetResponse = {
+          id: `firebase-${checksum}`,
           type: mediaType,
           storageKey: uploadResult.storageKey,
           mimeType,
-          sizeBytes,
-          checksum,
-        });
+        };
 
         setState((current) => ({
           ...current,
           status: 'creating-observation',
-          message: '정확 좌표를 private ObservationRecord로 저장하는 중',
+          message: '정확 좌표를 private Firestore 기록으로 저장하는 중',
+          media: mediaSummary,
           mediaAsset,
         }));
 
-        const observation = await createObservation(auth.session.idToken, {
-          mediaAssetIds: [mediaAsset.id],
+        const draft = await createFirebaseObservationDraft(auth.session.idToken, {
+          userId: auth.session.localId,
+          media: {
+            mediaType,
+            storageKey: uploadResult.storageKey,
+            mimeType,
+            sizeBytes,
+            checksum,
+          },
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           locationAccuracyMeters: location.coords.accuracy ?? 0,
@@ -198,16 +185,15 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'analyzing',
-          message: 'Gemini가 관찰 기록을 읽는 중',
-          observation,
+          message: 'Firebase-only MVP 후보를 준비하는 중',
+          observation: draft.observation,
         }));
 
-        const analysis = await pollAnalysisUntilComplete(auth.session.idToken, await analyzeObservation(auth.session.idToken, observation.id));
         setState((current) => ({
           ...current,
           status: 'ready-for-review',
-          message: '생물 후보를 확인해 주세요.',
-          analysis,
+          message: '임시 후보를 확인하고 지도에 심어주세요.',
+          analysis: draft.analysis,
         }));
       } catch (error) {
         setState((current) => ({
@@ -230,26 +216,31 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         if (!state.observation?.id) {
           throw new Error('심을 ObservationRecord가 없습니다.');
         }
+        const candidate = state.analysis?.candidates.find((item) => item.id === speciesCandidateId);
+        if (!candidate) {
+          throw new Error('선택한 생물 후보를 찾지 못했습니다.');
+        }
 
         setState((current) => ({
           ...current,
           status: 'planting',
-          message: '선택한 후보를 현재 셀 도감에 심는 중',
+          message: '선택한 후보를 Firestore 셀 도감에 심는 중',
           errorMessage: null,
         }));
 
-        const plantedCell = await plantObservation(auth.session.idToken, state.observation.id, {
-          speciesCandidateId,
+        const planted = await plantFirebaseObservation(auth.session.idToken, {
+          userId: auth.session.localId,
+          observation: state.observation,
+          candidate,
           visibility,
         });
-        const codexEntries = await getCodexEntries(auth.session.idToken, plantedCell.id);
 
         setState((current) => ({
           ...current,
           status: 'planted',
-          message: '셀 도감에 기록이 반영되었습니다.',
-          plantedCell,
-          codexEntries,
+          message: 'Firestore 셀 도감에 기록이 반영되었습니다.',
+          plantedCell: planted.plantedCell,
+          codexEntries: planted.codexEntries,
         }));
       } catch (error) {
         setState((current) => ({
@@ -260,7 +251,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         }));
       }
     },
-    [auth.session, state.observation?.id]
+    [auth.session?.idToken, auth.session?.localId, state.analysis?.candidates, state.observation]
   );
 
   const value = useMemo<ObservationFlowContextValue>(
@@ -299,31 +290,4 @@ function defaultNameForMime(mimeType: string): string {
     return 'capture.m4a';
   }
   return 'capture.jpg';
-}
-
-async function pollAnalysisUntilComplete(idToken: string, firstResponse: AnalysisResponse): Promise<AnalysisResponse> {
-  if (isTerminalAnalysisStatus(firstResponse.status)) {
-    return firstResponse;
-  }
-
-  let current = firstResponse;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    await delay(1200);
-    current = await getAnalysisJob(idToken, current.jobId);
-    if (isTerminalAnalysisStatus(current.status)) {
-      return current;
-    }
-  }
-
-  return current;
-}
-
-function isTerminalAnalysisStatus(status: string) {
-  return ['SUCCEEDED', 'FAILED'].includes(status.toUpperCase());
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }

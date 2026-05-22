@@ -110,7 +110,7 @@ export function CaptureScreen() {
         </View>
 
         <View style={styles.buttons}>
-          <AtlasButton label={flow.isBusy ? '처리 중' : 'Gemini로 읽기'} onPress={startAnalysis} disabled={flow.isBusy} />
+          <AtlasButton label={flow.isBusy ? '처리 중' : '기록 확인하기'} onPress={startAnalysis} disabled={flow.isBusy} />
           <AtlasButton label="지도 돌아가기" variant="secondary" onPress={() => router.push('/(tabs)')} />
         </View>
         </ScrollView>

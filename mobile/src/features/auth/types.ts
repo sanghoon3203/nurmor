@@ -5,4 +5,4 @@ export type AuthSession = {
   expiresAt: number;
 };
 
-export type AuthStatus = 'loading' | 'authenticated' | 'missing-config' | 'error';
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'missing-config' | 'error';

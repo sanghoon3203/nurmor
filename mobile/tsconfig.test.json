@@ -12,8 +12,13 @@
   },
   "include": [
     "src/config/env.ts",
+    "src/features/auth/types.ts",
+    "src/features/launch/launchFlow.ts",
+    "src/features/launch/launchFlow.test.ts",
     "src/services/api.ts",
     "src/services/api.test.ts",
+    "src/services/firebaseAtlasDb.ts",
+    "src/services/firebaseAtlasDb.test.ts",
     "src/services/firebaseStorageRest.ts",
     "src/services/firebaseStorageRest.test.ts"
   ]

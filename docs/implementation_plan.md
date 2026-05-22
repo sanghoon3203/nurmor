@@ -116,7 +116,8 @@ Atlas는 Expo 기반 React Native 앱과 별도 백엔드 API로 구현한다. �
 ## 7. Backend Logic
 
 ### 7.1 Media And Observation
-- `POST /api/media/upload`로 사진, 영상, 소리를 업로드한다.
+- 모바일 앱이 Firebase Storage에 사진, 영상, 소리를 직접 업로드한다.
+- `POST /api/media/register`로 업로드된 object metadata를 백엔드에 등록한다.
 - `POST /api/observations`로 위치 metadata와 media asset을 묶어 관찰 record를 만든다.
 - 정확 좌표는 private field로 저장하고 공개 지도에는 cell 단위 위치를 사용한다.
 
@@ -130,6 +131,15 @@ Atlas는 Expo 기반 React Native 앱과 별도 백엔드 API로 구현한다. �
 - 사용자가 후보를 선택하면 `POST /api/observations/:id/plant`로 셀에 기록을 심는다.
 - 기존 도감 항목과 중복 후보를 검사한 뒤 `CodexEntry`를 생성하거나 갱신한다.
 - `bloomScore`는 고유 기록 수, 생물 다양성, 미디어 다양성, 반복 관찰을 기반으로 계산한다.
+- `GET /api/habitat-cells/nearby?lat={lat}&lng={lng}&radiusKm=5`로 지도 홈의 주변 셀을 조회한다.
+- `GET /api/codex?category={PLANT|ANIMAL|OTHER}&page=0&size=20`로 도감 그리드를 조회한다.
+
+### 7.4 Profile And Community
+- `GET /api/me`, `PUT /api/me`로 사용자 프로필과 기여자 표시 opt-in을 관리한다.
+- `GET /api/me/stats`는 마이페이지의 보고 횟수, 발견 생물, 업적 요약에 사용한다.
+- `GET /api/me/recent-observations`는 내가 최근 발견한 것들 목록에 사용한다.
+- `GET /api/community/discoveries?lat={lat}&lng={lng}&radiusKm=5`는 근방 5km 커뮤니티 피드를 제공한다.
+- 커뮤니티 응답은 private observation을 제외하고, 공개 좌표는 cell center만 사용한다.
 
 ## 8. Verification Plan
 

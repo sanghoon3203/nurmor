@@ -16,6 +16,12 @@ export type HealthResponse = {
   status: string;
 };
 
+export type NearbyHabitatCellQuery = {
+  latitude: number;
+  longitude: number;
+  radiusKm?: number;
+};
+
 export type RegisterMediaAssetRequest = {
   type: 'PHOTO' | 'VIDEO' | 'AUDIO';
   storageKey: string;
@@ -73,6 +79,8 @@ export type CodexEntryResponse = {
   habitatCellId: string;
   speciesKey: string;
   displayName: string;
+  scientificName?: string | null;
+  category?: string;
   observationCount: number;
   bestConfidence: number;
 };
@@ -109,8 +117,15 @@ export function getHealth() {
   return requestJson<HealthResponse>('/actuator/health');
 }
 
-export function getNearbyHabitatCells(idToken: string) {
-  return requestJson<HabitatCell[]>('/api/habitat-cells/nearby', idToken);
+export function getNearbyHabitatCells(idToken: string, query?: NearbyHabitatCellQuery) {
+  const path = query
+    ? `/api/habitat-cells/nearby?${new URLSearchParams({
+        lat: String(query.latitude),
+        lng: String(query.longitude),
+        radiusKm: String(query.radiusKm ?? 5),
+      }).toString()}`
+    : '/api/habitat-cells/nearby';
+  return requestJson<HabitatCell[]>(path, idToken);
 }
 
 export function registerMediaAsset(idToken: string, request: RegisterMediaAssetRequest) {

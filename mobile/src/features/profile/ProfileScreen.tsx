@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,11 +7,57 @@ import { getPublicEnv } from '../../config/env';
 import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
 import { StatusBadge } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
+import { FirebaseUserProfile, getOrCreateUserProfile } from '../../services/firebaseAtlasDb';
 import { colors, radii } from '../../theme/tokens';
 
 export function ProfileScreen() {
   const auth = useAuth();
   const env = getPublicEnv();
+  const [profile, setProfile] = useState<FirebaseUserProfile | null>(null);
+  const [profileStatus, setProfileStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const displayName = profile?.displayName ?? (auth.status === 'authenticated' ? 'Atlas 탐험가' : '로그인 확인 중');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      if (!auth.session?.idToken || !auth.session.localId) {
+        setProfile(null);
+        setProfileStatus('idle');
+        setProfileMessage(null);
+        return;
+      }
+
+      setProfileStatus('loading');
+      setProfileMessage(null);
+      try {
+        const nextProfile = await getOrCreateUserProfile(auth.session.idToken, {
+          uid: auth.session.localId,
+          email: null,
+          displayName: null,
+        });
+        if (!isMounted) {
+          return;
+        }
+        setProfile(nextProfile);
+        setProfileStatus('ready');
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setProfile(null);
+        setProfileStatus('error');
+        setProfileMessage(error instanceof Error ? error.message : 'Firestore 프로필을 불러오지 못했습니다.');
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auth.session?.idToken, auth.session?.localId]);
 
   return (
     <GradientScreen>
@@ -27,13 +74,13 @@ export function ProfileScreen() {
           <RevealView delay={80}>
             <GlassPanel tone="green" contentStyle={styles.identityPanel}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{auth.session?.localId ? auth.session.localId.slice(0, 1).toUpperCase() : 'A'}</Text>
+                <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
               </View>
               <View style={styles.identityBody}>
-                <Text style={styles.identityTitle}>{auth.status === 'authenticated' ? '익명 관찰자로 연결됨' : '로그인 확인 중'}</Text>
+                <Text style={styles.identityTitle}>{displayName}</Text>
                 <Text style={styles.identityMeta}>{auth.session?.localId ? shortenUid(auth.session.localId) : auth.status}</Text>
               </View>
-              <StatusBadge label={auth.status === 'authenticated' ? '연결됨' : '확인'} tone="green" />
+              <StatusBadge label={profileStatus === 'ready' ? 'Firestore' : auth.status === 'authenticated' ? '연결됨' : '확인'} tone={profileStatus === 'ready' ? 'blue' : 'green'} />
             </GlassPanel>
           </RevealView>
 
@@ -46,9 +93,17 @@ export function ProfileScreen() {
             </Pressable>
           </View>
 
+          <View style={styles.statGrid}>
+            <StatBox label="보고횟수" value={profile?.reportCount ?? 0} />
+            <StatBox label="발견생물" value={profile?.speciesCount ?? 0} />
+            <StatBox label="업적달성" value={profile?.achievementCount ?? 0} />
+          </View>
+
           <GlassCard tone="strong">
             <Text style={styles.cardTitle}>기여자 표시</Text>
-            <Text style={styles.cardBody}>기본값은 익명입니다. 셀 도감에 이름을 표시하려면 opt-in 설정을 켜는 흐름을 다음 단계에서 연결합니다.</Text>
+            <Text style={styles.cardBody}>
+              기본값은 익명입니다. 현재 설정은 {profile?.publicContributor ? '셀 도감에 이름 표시' : '이름 비공개'} 상태입니다.
+            </Text>
             <View style={styles.preferenceGrid}>
               <View style={styles.preference}>
                 <Text style={styles.preferenceTitle}>정확 좌표</Text>
@@ -62,12 +117,20 @@ export function ProfileScreen() {
           </GlassCard>
 
           <GlassCard tone="sky">
-            <Text style={styles.cardTitle}>API 연결</Text>
-            <Text style={styles.cardBody}>{env.atlasApiBaseUrl}</Text>
+            <Text style={styles.cardTitle}>Firebase 연결</Text>
+            <Text style={styles.cardBody}>프로젝트 {env.firebaseProjectId || '미설정'} · Storage {env.firebaseStorageBucket || '미설정'}</Text>
+            <Text style={styles.cardBody}>Spring API는 {env.atlasApiBaseUrl || '현재 비활성화'} 상태입니다.</Text>
             <Pressable accessibilityRole="button" style={styles.checkButton} onPress={() => void auth.signIn()}>
-              <Text style={styles.checkButtonText}>세션 다시 확인</Text>
+              <Text style={styles.checkButtonText}>Firebase 세션 다시 확인</Text>
             </Pressable>
           </GlassCard>
+
+          {profileStatus === 'error' ? (
+            <GlassCard tone="bloom">
+              <Text style={styles.errorTitle}>프로필 동기화 오류</Text>
+              <Text style={styles.cardBody}>{profileMessage}</Text>
+            </GlassCard>
+          ) : null}
 
           {auth.errorMessage ? (
             <GlassCard tone="bloom">
@@ -78,6 +141,15 @@ export function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
     </GradientScreen>
+  );
+}
+
+function StatBox({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.statBox}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -152,6 +224,33 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statBox: {
+    flex: 1,
+    minHeight: 78,
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: radii.large,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.56)',
+  },
+  statValue: {
+    color: colors.canopy,
+    fontSize: 24,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  statLabel: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   primaryButton: {
     flex: 1,

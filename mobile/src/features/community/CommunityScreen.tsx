@@ -1,13 +1,16 @@
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
 import { StatusBadge } from '../atlas/ui';
+import { useAuth } from '../auth/AuthProvider';
+import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
 import { bloomColors, colors, radii } from '../../theme/tokens';
 
 type LocationStatus = 'loading' | 'granted' | 'denied' | 'error';
+type FeedStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type DiscoveryCard = {
   id: string;
@@ -20,6 +23,8 @@ type DiscoveryCard = {
   bloomState: string;
   cellLabel: string;
   evidence: string;
+  likeCount: number;
+  commentCount: number;
 };
 
 const sampleDiscoveries: DiscoveryCard[] = [
@@ -34,6 +39,8 @@ const sampleDiscoveries: DiscoveryCard[] = [
     bloomState: 'GROWING',
     cellLabel: '성산동 서식지 셀',
     evidence: '날개 색과 무늬 패턴이 최근 기록과 유사합니다.',
+    likeCount: 8,
+    commentCount: 2,
   },
   {
     id: 'near-2',
@@ -46,6 +53,8 @@ const sampleDiscoveries: DiscoveryCard[] = [
     bloomState: 'SEEDED',
     cellLabel: '홍대입구 근처 셀',
     evidence: '꽃잎 형태와 계절성이 주변 관찰과 일치합니다.',
+    likeCount: 5,
+    commentCount: 0,
   },
   {
     id: 'near-3',
@@ -58,25 +67,65 @@ const sampleDiscoveries: DiscoveryCard[] = [
     bloomState: 'BLOOMED',
     cellLabel: '월드컵공원 방향 셀',
     evidence: '소리 패턴과 기존 도감 기록이 높은 유사도를 보입니다.',
+    likeCount: 11,
+    commentCount: 4,
   },
 ];
 
 export function CommunityScreen() {
+  const auth = useAuth();
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('loading');
+  const [feedStatus, setFeedStatus] = useState<FeedStatus>('idle');
+  const [feedMessage, setFeedMessage] = useState<string | null>(null);
+  const [discoveries, setDiscoveries] = useState<DiscoveryCard[]>([]);
+  const visibleDiscoveries = discoveries.length > 0 ? discoveries : sampleDiscoveries;
+  const hasLiveFeed = discoveries.length > 0;
 
   useEffect(() => {
     let isMounted = true;
 
     async function checkLocation() {
+      if (!auth.session?.idToken) {
+        setLocationStatus('loading');
+        setFeedStatus('idle');
+        setDiscoveries([]);
+        return;
+      }
+
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!isMounted) {
           return;
         }
-        setLocationStatus(permission.status === 'granted' ? 'granted' : 'denied');
+        if (permission.status !== 'granted') {
+          setLocationStatus('denied');
+          setFeedStatus('idle');
+          setDiscoveries([]);
+          return;
+        }
+
+        setLocationStatus('granted');
+        setFeedStatus('loading');
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const nextDiscoveries = await listCommunityDiscoveries(auth.session.idToken, {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          radiusKm: 5,
+        });
+        if (!isMounted) {
+          return;
+        }
+        setDiscoveries(nextDiscoveries.map(toDiscoveryCard));
+        setFeedStatus('ready');
+        setFeedMessage(null);
       } catch {
         if (isMounted) {
           setLocationStatus('error');
+          setFeedStatus('error');
+          setFeedMessage('Firestore 커뮤니티 발견을 불러오지 못했습니다.');
+          setDiscoveries([]);
         }
       }
     }
@@ -86,7 +135,7 @@ export function CommunityScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [auth.session?.idToken]);
 
   return (
     <GradientScreen>
@@ -114,21 +163,32 @@ export function CommunityScreen() {
 
           <View style={styles.feedHeader}>
             <Text style={styles.sectionTitle}>최근 발견</Text>
-            <StatusBadge label="셀 위치만 공개" tone="green" />
+            <StatusBadge label={hasLiveFeed ? 'Firestore 연결' : '셀 위치만 공개'} tone={hasLiveFeed ? 'blue' : 'green'} />
           </View>
 
-          {sampleDiscoveries.map((item, index) => (
+          {feedStatus === 'loading' ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={colors.canopy} />
+              <Text style={styles.loadingText}>주변 발견을 동기화하는 중</Text>
+            </View>
+          ) : null}
+
+          {visibleDiscoveries.map((item, index) => (
             <RevealView key={item.id} delay={140 + index * 70}>
               <DiscoveryCard item={item} />
             </RevealView>
           ))}
 
-          <GlassCard tone="strong">
-            <Text style={styles.noticeTitle}>커뮤니티 API 예정</Text>
-            <Text style={styles.noticeBody}>
-              다음 백엔드 단계에서 반경 5km 발견 목록을 `GET /api/community/discoveries`로 연결합니다. 현재 화면은 개인정보 정책을 먼저 확인하기 위한 UI입니다.
-            </Text>
-          </GlassCard>
+          {!hasLiveFeed ? (
+            <GlassCard tone={feedStatus === 'error' ? 'bloom' : 'strong'}>
+              <Text style={styles.noticeTitle}>{feedStatus === 'error' ? 'Firestore 연결 실패' : '미리보기 피드'}</Text>
+              <Text style={styles.noticeBody}>
+                {feedStatus === 'error'
+                  ? feedMessage ?? 'Firebase 프로젝트와 Firestore 규칙을 확인해 주세요.'
+                  : '아직 주변 5km 안에 공개된 Firestore 발견이 없어서 예시 카드로 커뮤니티 흐름을 보여줍니다.'}
+              </Text>
+            </GlassCard>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </GradientScreen>
@@ -146,9 +206,11 @@ function DiscoveryCard({ item }: { item: DiscoveryCard }) {
           <Text style={styles.cardTitle}>{item.commonNameKo}</Text>
           <Text style={styles.scientific}>{item.scientificName}</Text>
         </View>
-        <View style={styles.confidencePill}>
-          <Text style={styles.confidenceText}>{item.confidence}%</Text>
-        </View>
+        {item.confidence > 0 ? (
+          <View style={styles.confidencePill}>
+            <Text style={styles.confidenceText}>{item.confidence}%</Text>
+          </View>
+        ) : null}
       </View>
 
       <Text style={styles.evidence}>{item.evidence}</Text>
@@ -157,6 +219,8 @@ function DiscoveryCard({ item }: { item: DiscoveryCard }) {
         <Text style={styles.metaText}>{formatDistance(item.distanceMeters)} 근처</Text>
         <Text style={styles.metaText}>{item.observedAtLabel}</Text>
         <Text style={styles.metaText}>{item.contributorName ?? '익명 관찰자'}</Text>
+        <Text style={styles.metaText}>좋아요 {item.likeCount}</Text>
+        <Text style={styles.metaText}>댓글 {item.commentCount}</Text>
       </View>
 
       <Pressable accessibilityRole="button" style={styles.cellButton}>
@@ -166,11 +230,49 @@ function DiscoveryCard({ item }: { item: DiscoveryCard }) {
   );
 }
 
+function toDiscoveryCard(item: FirebaseCommunityDiscovery): DiscoveryCard {
+  return {
+    id: item.id,
+    commonNameKo: item.displayName,
+    scientificName: item.scientificName ?? item.category,
+    confidence: 0,
+    observedAtLabel: formatRelativeDate(item.createdAt),
+    distanceMeters: Math.round(item.distanceKm * 1000),
+    contributorName: item.contributorName,
+    bloomState: item.category === 'PLANT' ? 'GROWING' : item.category === 'ANIMAL' ? 'BLOOMED' : 'SEEDED',
+    cellLabel: item.cellKey ? `${item.cellKey} 셀` : '주변 서식지 셀',
+    evidence: '공개 범위가 셀 단위로 설정된 주변 발견입니다.',
+    likeCount: item.likeCount,
+    commentCount: item.commentCount,
+  };
+}
+
 function formatDistance(meters: number) {
   if (meters < 1000) {
     return `${meters}m`;
   }
   return `${(meters / 1000).toFixed(1)}km`;
+}
+
+function formatRelativeDate(value: string | null) {
+  if (!value) {
+    return '방금 전';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(0, 10);
+  }
+  const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (diffMinutes < 1) {
+    return '방금 전';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}분 전`;
+  }
+  if (diffMinutes < 1440) {
+    return `${Math.round(diffMinutes / 60)}시간 전`;
+  }
+  return `${Math.round(diffMinutes / 1440)}일 전`;
 }
 
 function statusTitle(status: LocationStatus) {
@@ -266,6 +368,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  loadingRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: radii.large,
+    backgroundColor: 'rgba(255, 255, 255, 0.48)',
+  },
+  loadingText: {
+    color: colors.canopy,
+    fontSize: 13,
+    fontWeight: '900',
   },
   sectionTitle: {
     color: colors.ink,

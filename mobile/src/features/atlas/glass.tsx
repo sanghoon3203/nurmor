@@ -112,7 +112,7 @@ function toneStyle(tone: SurfaceTone) {
 const styles = StyleSheet.create({
   gradientScreen: {
     flex: 1,
-    backgroundColor: colors.field,
+    backgroundColor: colors.paper,
   },
   topMist: {
     position: 'absolute',

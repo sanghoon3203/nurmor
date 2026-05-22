@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js .tmp-tests/src/features/launch/*.test.js",
     "typecheck": "tsc --noEmit",
     "expo:check": "expo install --check"
   },

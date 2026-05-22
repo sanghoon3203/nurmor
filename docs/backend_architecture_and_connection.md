@@ -18,7 +18,7 @@ Atlas currently uses the repository root as the Spring Boot backend workspace. T
 └── src/
     ├── main/java/com/atlas/api/
     ├── main/resources/application.yml
-    └── main/resources/db/migration/V1__init_atlas_schema.sql
+    └── main/resources/db/migration/
 ```
 
 Important backend package boundaries:
@@ -27,12 +27,15 @@ Important backend package boundaries:
 com.atlas.api
 ├── analysis      Gemini analysis jobs, candidates, parser, Gemini HTTP client
 ├── auth          Firebase ID token auth, local token verifier, Firebase Admin config
-├── codex         Cell-level species codex entries
+├── codex         Cell-level and global species codex entries
+├── community     5km nearby discovery feed API
 ├── common        API errors and exception handling
 ├── config        Spring Security configuration
+├── geo           Bounding-box and distance helpers
 ├── habitat       HabitatCell model, cell key resolution, cell APIs
 ├── media         Firebase Storage metadata registration
-└── observation   Observation creation, analysis orchestration, planting, bloom score
+├── observation   Observation creation, analysis orchestration, planting, bloom score
+└── profile       User profile, contributor opt-in, stats, recent observations
 ```
 
 ## 2. Runtime Stack
@@ -181,10 +184,11 @@ Protected endpoints:
 
 ## 6. Data Model
 
-Initial schema is managed by:
+Schema is managed by Flyway:
 
 ```text
 src/main/resources/db/migration/V1__init_atlas_schema.sql
+src/main/resources/db/migration/V2__mobile_profile_community_schema.sql
 ```
 
 Tables:
@@ -197,6 +201,15 @@ Tables:
 | `analysis_jobs` | One Gemini analysis attempt for an observation |
 | `species_candidates` | Candidate species returned by Gemini |
 | `codex_entries` | Cell-level species entries after user confirmation |
+| `user_profiles` | Display name, avatar URL, and contributor-name opt-in |
+
+`V2__mobile_profile_community_schema.sql` adds:
+
+- `user_profiles`
+- `codex_entries.category`
+- `codex_entries.representative_media_key`
+- `codex_entries.discovery_number`
+- indexes for user recent observations, nearby public discoveries, and global codex category feeds
 
 Privacy rule in the current model:
 
@@ -221,11 +234,12 @@ h:<latIndex>:<lngIndex>
 - Cell center is calculated from the grid index.
 - If an observation lands in a new cell, the backend creates that `HabitatCell`.
 
-Current limitation:
+Nearby search:
 
-- `GET /api/habitat-cells/nearby` currently returns all cells.
-- It does not yet accept the mobile user's location or radius.
-- The intended next step is a 5km nearby query with latitude, longitude, and radius parameters.
+- `GET /api/habitat-cells/nearby?lat={lat}&lng={lng}&radiusKm=5`
+- The backend first selects cells in a bounding box, then filters by Haversine distance.
+- `radiusKm` is capped at 50km.
+- If `lat/lng` are omitted, the local smoke-test default uses Seoul center with 5km radius.
 
 ## 8. API Contract
 
@@ -424,15 +438,16 @@ Response:
 }
 ```
 
-Current limitation:
+Contributor behavior:
 
-- `contributorCount` is currently simplified.
-- Contributor identity display and opt-in naming still need a user/profile model.
+- `contributorCount` is calculated from distinct planted observation users in the cell.
+- Contributor names are not exposed from observations by default.
+- Public contributor display uses `user_profiles.public_contributor = true`.
 
 ### 8.7 List Nearby Habitat Cells
 
 ```http
-GET /api/habitat-cells/nearby
+GET /api/habitat-cells/nearby?lat=37.5665&lng=126.9780&radiusKm=5
 ```
 
 Response:
@@ -453,10 +468,10 @@ Response:
 ]
 ```
 
-Current limitation:
+Notes:
 
-- It returns every cell for now.
-- It should become location/radius scoped for the community and map views.
+- `lat` and `lng` are optional for smoke tests but should always be supplied by mobile.
+- Response coordinates are HabitatCell centers, not exact observation coordinates.
 
 ### 8.8 Get One Habitat Cell
 
@@ -481,11 +496,168 @@ Response:
     "habitatCellId": "<cell-uuid>",
     "speciesKey": "pieris-rapae",
     "displayName": "노랑나비",
+    "scientificName": "Pieris rapae",
+    "category": "ANIMAL",
+    "representativeMediaKey": null,
+    "discoveryNumber": 12,
     "observationCount": 3,
-    "bestConfidence": 0.92
+    "bestConfidence": 0.92,
+    "firstObservedAt": "2026-05-21T02:30:00Z",
+    "lastObservedAt": "2026-05-21T02:30:00Z"
   }
 ]
 ```
+
+### 8.10 User Profile, Stats, And Recent Observations
+
+```http
+GET /api/me
+PUT /api/me
+GET /api/me/stats
+GET /api/me/recent-observations
+```
+
+`GET /api/me` creates a default profile on first access.
+
+`PUT /api/me` request:
+
+```json
+{
+  "displayName": "서식지 탐험가",
+  "avatarUrl": "https://example.com/avatar.png",
+  "publicContributor": true
+}
+```
+
+Profile response:
+
+```json
+{
+  "userId": "<stable-internal-user-uuid>",
+  "email": "user@example.com",
+  "displayName": "서식지 탐험가",
+  "avatarUrl": "https://example.com/avatar.png",
+  "publicContributor": true,
+  "createdAt": "2026-05-21T02:30:00Z",
+  "updatedAt": "2026-05-21T02:30:00Z"
+}
+```
+
+Stats response:
+
+```json
+{
+  "reportCount": 8,
+  "discoveredSpeciesCount": 3,
+  "plantedObservationCount": 5,
+  "achievementCount": 1
+}
+```
+
+Recent observations response:
+
+```json
+[
+  {
+    "observationId": "<observation-uuid>",
+    "habitatCellId": "<cell-uuid>",
+    "displayName": "노랑나비",
+    "status": "PLANTED",
+    "publicLat": 37.56625,
+    "publicLng": 126.97875,
+    "capturedAt": "2026-05-21T02:30:00Z"
+  }
+]
+```
+
+Mobile use:
+
+- Login/register completion screen can call `GET /api/me`.
+- Mypage uses `GET /api/me`, `GET /api/me/stats`, and `GET /api/me/recent-observations`.
+- Contributor name display must be opt-in through `publicContributor`.
+
+### 8.11 Global Codex Feed
+
+```http
+GET /api/codex?category=ANIMAL&page=0&size=20
+```
+
+Supported category values:
+
+- `PLANT`
+- `ANIMAL`
+- `OTHER`
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "<codex-entry-uuid>",
+      "habitatCellId": "<cell-uuid>",
+      "speciesKey": "eurema-hecabe",
+      "displayName": "노랑나비",
+      "scientificName": "Eurema hecabe",
+      "category": "ANIMAL",
+      "representativeMediaKey": null,
+      "discoveryNumber": 1,
+      "observationCount": 1,
+      "bestConfidence": 0.87,
+      "firstObservedAt": "2026-05-21T02:30:00Z",
+      "lastObservedAt": "2026-05-21T02:30:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 1
+}
+```
+
+Mobile use:
+
+- Dex view uses this endpoint for the 2-column grid.
+- Category filter maps directly to `category`.
+- Cell detail still uses `/api/habitat-cells/{cellId}/codex`.
+
+### 8.12 Nearby Community Discoveries
+
+```http
+GET /api/community/discoveries?lat=37.5665&lng=126.9780&radiusKm=5
+```
+
+Response:
+
+```json
+[
+  {
+    "discoveryId": "<observation-uuid>",
+    "habitatCellId": "<cell-uuid>",
+    "displayName": "노랑나비",
+    "scientificName": "Eurema hecabe",
+    "confidence": 0.87,
+    "distanceKm": 0.3,
+    "publicLat": 37.56625,
+    "publicLng": 126.97875,
+    "capturedAt": "2026-05-21T02:30:00Z",
+    "contributorName": "익명 탐험가",
+    "likeCount": 0,
+    "commentCount": 0
+  }
+]
+```
+
+Current behavior:
+
+- Returns planted observations within `radiusKm`.
+- Excludes `Visibility.PRIVATE`.
+- Uses public cell coordinates only.
+- `likeCount` and `commentCount` are placeholders until social interaction tables are added.
+
+Mobile use:
+
+- Community view should request the current location and pass `radiusKm=5`.
+- Cards can display comments/likes as disabled or zero-state UI until interaction APIs exist.
 
 ## 9. Gemini Integration
 
@@ -544,9 +716,12 @@ EXPO_PUBLIC_FIREBASE_APP_ID="<firebase-app-id>"
 Mobile auth flow:
 
 1. `AuthProvider` reads `EXPO_PUBLIC_FIREBASE_API_KEY`.
-2. The app signs in anonymously through Firebase Auth REST.
-3. The app stores the Firebase ID token and refresh token in AsyncStorage.
-4. `api.ts` adds `Authorization: Bearer <idToken>` to protected API calls.
+2. The launch gate checks AsyncStorage for an existing Firebase session.
+3. If a fresh or refreshable session exists, the app routes to `/(tabs)` and uses that token.
+4. If no session exists, the app routes to `/login`.
+5. The current login/browse action signs in anonymously through Firebase Auth REST.
+6. The app stores the Firebase ID token and refresh token in AsyncStorage.
+7. `api.ts` adds `Authorization: Bearer <idToken>` to protected API calls.
 
 Mobile observation flow:
 
@@ -610,7 +785,7 @@ Get a Firebase ID token from the mobile app session or Firebase Auth REST, then:
 
 ```bash
 curl -H "Authorization: Bearer <firebase-id-token>" \
-  "$EXPO_PUBLIC_ATLAS_API_BASE_URL/api/habitat-cells/nearby"
+  "$EXPO_PUBLIC_ATLAS_API_BASE_URL/api/habitat-cells/nearby?lat=37.5665&lng=126.9780&radiusKm=5"
 ```
 
 Expected:
@@ -627,8 +802,9 @@ npx expo start --clear
 
 Expected:
 
-- App signs in anonymously.
-- Home map can call backend health and nearby HabitatCell APIs.
+- App shows the logo dissolve and leaf-curtain launch gate.
+- Existing sessions go to the map tabs; missing sessions go to login.
+- Home map can call backend health and location-scoped nearby HabitatCell APIs.
 - Record flow can upload to Firebase Storage, register media, create observation, request Gemini analysis, and plant the selected candidate.
 
 ## 12. Current Completion Boundary
@@ -637,23 +813,25 @@ Implemented:
 
 - Spring Boot backend skeleton and domain model.
 - Firebase ID token auth path.
-- Cloud SQL schema and Flyway migration.
+- Cloud SQL schema and Flyway migrations.
 - Firebase Storage metadata registration.
 - Observation creation with private exact coordinates and public cell coordinates.
 - Gemini analysis client and structured response parser.
 - Candidate planting into cell codex.
 - HabitatCell bloom score update.
+- Location/radius scoped nearby HabitatCell query.
+- User profile, public contributor opt-in, stats, and recent observations API.
+- Global codex list API with category filter and pagination.
+- 5km-style nearby community discoveries API.
 - Mobile service layer connection to the backend.
 
 Still needed:
 
-- 5km community feed API.
-- Location/radius scoped `nearby` query.
 - Firebase Storage object ownership and checksum verification.
 - Fully async `AnalysisJob` execution.
 - Stronger Gemini schema validation and retry policy.
-- User profile table for contributor display opt-in.
+- Social interaction persistence for community likes/comments.
+- Representative codex media selection.
 - Email/social Firebase auth UI wiring.
 - API integration tests against real Firebase token and Cloud SQL.
 - Production Cloud Run hardening with Secret Manager and Cloud SQL connector/private networking.
-

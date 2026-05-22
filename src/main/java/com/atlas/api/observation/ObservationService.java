@@ -1,6 +1,7 @@
 package com.atlas.api.observation;
 
 import com.atlas.api.analysis.*;
+import com.atlas.api.codex.CodexCategory;
 import com.atlas.api.codex.CodexEntry;
 import com.atlas.api.codex.CodexEntryRepository;
 import com.atlas.api.common.ApiException;
@@ -133,6 +134,9 @@ public class ObservationService {
                 speciesKey,
                 candidate.getCommonNameKo(),
                 candidate.getScientificName(),
+                CodexCategory.infer(candidate.getCommonNameKo(), candidate.getScientificName()),
+                null,
+                codexEntryRepository.count() + 1,
                 candidate.getConfidence(),
                 record.getCapturedAt()
             ));
@@ -145,7 +149,7 @@ public class ObservationService {
     private void updateCellBloom(HabitatCell cell) {
         int observations = (int) observationRecordRepository.countByHabitatCellIdAndStatus(cell.getId(), ObservationStatus.PLANTED);
         int species = (int) codexEntryRepository.countByHabitatCellId(cell.getId());
-        int contributors = Math.min(observations, 1);
+        int contributors = (int) observationRecordRepository.countDistinctUsersByHabitatCellIdAndStatus(cell.getId(), ObservationStatus.PLANTED);
         BloomScoreResult result = bloomScoreCalculator.calculate(new BloomScoreInput(observations, species, 1, observations, contributors));
         cell.updateBloom(result.score(), result.state(), observations, species, contributors);
     }
