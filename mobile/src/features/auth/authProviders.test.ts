@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 
@@ -19,13 +19,12 @@ test('auth screens do not expose Apple login while Apple Developer setup is unav
   assert.equal(/signInWithApple|appleOAuthClientId|apple\.com/.test(authProvider), false);
 });
 
-test('Apple OAuth configuration is not required by the mobile app', () => {
-  const envExample = readProjectFile('.env.example');
+test('Apple OAuth configuration is not required by the mobile app or env template files', () => {
   const env = readProjectFile('src/config/env.ts');
   const appConfig = readProjectFile('app.json');
   const oauthProviders = readProjectFile('src/services/oauthProviders.ts');
 
-  assert.equal(envExample.includes('EXPO_PUBLIC_APPLE_OAUTH_CLIENT_ID'), false);
+  assert.equal(existsSync(resolve(projectRoot, '.env.example')), false);
   assert.equal(env.includes('appleOAuthClientId'), false);
   assert.equal(appConfig.includes('usesAppleSignIn'), false);
   assert.equal(oauthProviders.includes('apple.com'), false);

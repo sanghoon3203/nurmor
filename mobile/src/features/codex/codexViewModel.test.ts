@@ -15,6 +15,7 @@ const baseCard: CodexCardViewModel = {
   displayNumber: 'No.001',
   title: '참새',
   scientificName: 'Passer montanus',
+  speciesKey: 'passer-montanus',
   category: 'ANIMAL',
   categoryLabel: '동물',
   categoryIcon: 'paw',

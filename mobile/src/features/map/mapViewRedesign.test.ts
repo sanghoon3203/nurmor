@@ -9,21 +9,34 @@ function readSource(path: string) {
   return readFileSync(join(projectRoot, path), 'utf8');
 }
 
-test('map view uses discovery emoji markers from community discovery data', () => {
+test('map view uses discovery emoji markers and habitat cell polygons', () => {
   const source = readSource('src/features/map/MapHomeScreen.tsx');
 
   assert.equal(source.includes('listCommunityDiscoveries'), true);
   assert.equal(source.includes('DiscoveryMarker'), true);
   assert.equal(source.includes('emojiForDiscovery'), true);
-  assert.equal(source.includes('Polygon'), false);
+  assert.equal(source.includes('Polygon'), true);
+  assert.equal(source.includes('demoHabitatCells'), true);
 });
 
-test('map view shows an animated transparent discovery card instead of the old ecology summary sheet', () => {
+test('map view opens an ecology report as a vertical toggle panel', () => {
   const source = readSource('src/features/map/MapHomeScreen.tsx');
 
   assert.equal(source.includes('Animated.View'), true);
-  assert.equal(source.includes('DiscoveryCard'), true);
-  assert.equal(source.includes('이(가) 발견함!'), true);
+  assert.equal(source.includes('CellEcologyReport'), true);
+  assert.equal(source.includes('reportPanelMotion'), true);
+  assert.equal(source.includes('selectedCellId'), true);
+  assert.equal(source.includes('togglePanelTranslateY'), true);
+  assert.equal(source.includes('blurRadius'), true);
+  assert.equal(source.includes('outputRange: [94, 0]'), true);
+  assert.equal(source.includes('useSafeAreaInsets'), true);
+  assert.equal(source.includes('bottom: Math.max(insets.bottom + 86, 108)'), true);
+  assert.equal(source.includes('PanResponder'), true);
+  assert.equal(source.includes('reportHandleResponder'), true);
+  assert.equal(source.includes('gesture.dy > 36'), true);
+  assert.equal(source.includes('width: 150'), true);
+  assert.equal(source.includes('paddingTop: 8'), true);
+  assert.equal(source.includes('생태 보고서'), true);
   assert.equal(source.includes('내 생태 지도'), false);
   assert.equal(source.includes('ProgressBar'), false);
   assert.equal(source.includes('bottomCard'), false);

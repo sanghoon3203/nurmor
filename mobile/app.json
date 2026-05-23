@@ -43,6 +43,20 @@
           "photosPermission": "Atlas uses your photos to register ecological observations."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Atlas uses your camera to capture ecological observations.",
+          "microphonePermission": "Atlas uses your microphone for observation recordings.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Atlas uses your microphone for observation recordings."
+        }
+      ],
       "expo-web-browser"
     ]
   }

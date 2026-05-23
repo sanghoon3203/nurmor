@@ -56,29 +56,45 @@ real-device Firebase smoke test -> email/social auth -> replace placeholder cand
 
 ## Environment
 
-Create `mobile/.env` from `mobile/.env.example`.
+Configure `mobile/.env` directly. This file is local-only and should not be committed.
 
-```bash
-cp .env.example .env
-```
+### Using Your Own Firebase Project
 
-Required values:
+Another contributor can run the mobile app with their own Firebase project by creating
+`mobile/.env` with the values below.
+
+Required values used by the current app code:
 
 ```env
 EXPO_PUBLIC_FIREBASE_API_KEY=your-firebase-web-api-key
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
-EXPO_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
 ```
 
-Use your machine LAN IP instead of `127.0.0.1` when testing from a physical phone.
-Anonymous sign-in must be enabled in Firebase Authentication for the current browse/login action.
-The Spring/Gemini backend is optional during the Firebase-only MVP. If it is running again, set:
+Optional values:
 
 ```env
+EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID=your-google-oauth-client-id
 EXPO_PUBLIC_ATLAS_API_BASE_URL=http://your-backend-host
 ```
+
+Firebase Console setup required for a new project:
+
+1. Enable Firebase Authentication.
+2. Enable Anonymous auth for the current browse/login action.
+3. Enable Email/Password auth if testing the email login and signup screens.
+4. Enable Firestore.
+5. Enable Firebase Storage.
+6. Create iOS and Android apps with the identifiers in the Native App Identity section.
+7. Deploy this repo's Firestore and Storage rules before sharing the app with other users.
+
+Notes:
+
+- `EXPO_PUBLIC_*` values are bundled into the client app. Treat them as public config, not secrets.
+- Security must come from Firebase Auth, Firestore rules, and Storage rules.
+- If `EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` belongs to another project, Google login only works when that project's OAuth client and redirect settings match the app.
+- If a fresh Firebase project has no documents yet, the app still runs, but 도감, 커뮤니티, 지도, and 마이페이지 records may be empty until observations are created.
+- Use your machine LAN IP instead of `127.0.0.1` when testing a local backend from a physical phone.
 
 See `../docs/firebase_only_mvp.md` for Firestore collections and security rules.
 

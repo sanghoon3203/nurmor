@@ -1,4 +1,5 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Animated, Easing, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { colors, glass, motion, radii } from '../../theme/tokens';
@@ -15,9 +16,6 @@ type GlassProps = {
 export function GradientScreen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[styles.gradientScreen, style]}>
-      <View style={styles.topMist} />
-      <View style={styles.fieldVeil} />
-      <View style={styles.waterVeil} />
       {children}
     </View>
   );
@@ -61,7 +59,7 @@ export function RevealView({
 }) {
   const value = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  const runReveal = useCallback(() => {
     value.setValue(0);
     Animated.timing(value, {
       toValue: 1,
@@ -71,6 +69,12 @@ export function RevealView({
       useNativeDriver: true,
     }).start();
   }, [delay, value]);
+
+  useEffect(() => {
+    runReveal();
+  }, [runReveal]);
+
+  useFocusEffect(runReveal);
 
   return (
     <Animated.View
@@ -113,30 +117,6 @@ const styles = StyleSheet.create({
   gradientScreen: {
     flex: 1,
     backgroundColor: colors.paper,
-  },
-  topMist: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 340,
-    backgroundColor: 'rgba(217, 240, 239, 0.56)',
-  },
-  fieldVeil: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 220,
-    height: 360,
-    backgroundColor: 'rgba(223, 241, 207, 0.5)',
-  },
-  waterVeil: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 260,
-    backgroundColor: 'rgba(205, 238, 245, 0.38)',
   },
   panelShell: {
     overflow: 'hidden',

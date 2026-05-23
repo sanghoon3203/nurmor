@@ -1,15 +1,14 @@
 import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
-import { StatusBadge } from '../atlas/ui';
+import { GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
 import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
-import { bloomColors, colors, radii } from '../../theme/tokens';
+import { colors, radii } from '../../theme/tokens';
 
-type LocationStatus = 'loading' | 'granted' | 'denied' | 'error';
 type FeedStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type DiscoveryCard = {
@@ -22,6 +21,7 @@ type DiscoveryCard = {
   contributorName: string | null;
   bloomState: string;
   cellLabel: string;
+  imageUrl: string | null;
   evidence: string;
   likeCount: number;
   commentCount: number;
@@ -37,8 +37,9 @@ const sampleDiscoveries: DiscoveryCard[] = [
     distanceMeters: 1240,
     contributorName: '김상훈',
     bloomState: 'GROWING',
-    cellLabel: '성산동 서식지 셀',
-    evidence: '날개 색과 무늬 패턴이 최근 기록과 유사합니다.',
+    cellLabel: '성산동 산책로',
+    imageUrl: null,
+    evidence: '성산동 산책로에서 노랑나비로 추정을 발견했어요! 🦋',
     likeCount: 8,
     commentCount: 2,
   },
@@ -51,8 +52,9 @@ const sampleDiscoveries: DiscoveryCard[] = [
     distanceMeters: 860,
     contributorName: null,
     bloomState: 'SEEDED',
-    cellLabel: '홍대입구 근처 셀',
-    evidence: '꽃잎 형태와 계절성이 주변 관찰과 일치합니다.',
+    cellLabel: '홍대입구 화단',
+    imageUrl: null,
+    evidence: '홍대입구 화단에서 개망초를 발견했어요! 🌼',
     likeCount: 5,
     commentCount: 0,
   },
@@ -65,8 +67,9 @@ const sampleDiscoveries: DiscoveryCard[] = [
     distanceMeters: 3120,
     contributorName: '지 민',
     bloomState: 'BLOOMED',
-    cellLabel: '월드컵공원 방향 셀',
-    evidence: '소리 패턴과 기존 도감 기록이 높은 유사도를 보입니다.',
+    cellLabel: '월드컵공원 숲길',
+    imageUrl: null,
+    evidence: '월드컵공원 숲길에서 직박구리를 발견했어요! 🐦',
     likeCount: 11,
     commentCount: 4,
   },
@@ -74,7 +77,7 @@ const sampleDiscoveries: DiscoveryCard[] = [
 
 export function CommunityScreen() {
   const auth = useAuth();
-  const [locationStatus, setLocationStatus] = useState<LocationStatus>('loading');
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [feedStatus, setFeedStatus] = useState<FeedStatus>('idle');
   const [feedMessage, setFeedMessage] = useState<string | null>(null);
   const [discoveries, setDiscoveries] = useState<DiscoveryCard[]>([]);
@@ -86,7 +89,6 @@ export function CommunityScreen() {
 
     async function checkLocation() {
       if (!auth.session?.idToken) {
-        setLocationStatus('loading');
         setFeedStatus('idle');
         setDiscoveries([]);
         return;
@@ -98,13 +100,11 @@ export function CommunityScreen() {
           return;
         }
         if (permission.status !== 'granted') {
-          setLocationStatus('denied');
           setFeedStatus('idle');
           setDiscoveries([]);
           return;
         }
 
-        setLocationStatus('granted');
         setFeedStatus('loading');
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -122,7 +122,6 @@ export function CommunityScreen() {
         setFeedMessage(null);
       } catch {
         if (isMounted) {
-          setLocationStatus('error');
           setFeedStatus('error');
           setFeedMessage('Firestore 커뮤니티 발견을 불러오지 못했습니다.');
           setDiscoveries([]);
@@ -140,30 +139,21 @@ export function CommunityScreen() {
   return (
     <GradientScreen>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.ScrollView
+          contentContainerStyle={styles.content}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+        >
           <RevealView>
             <View style={styles.header}>
-              <Text style={styles.kicker}>근방 5km 생태 소식</Text>
               <Text style={styles.title}>커뮤니티</Text>
-              <Text style={styles.subtitle}>정확한 좌표 없이 셀 단위로 공개된 주변 발견만 보여줍니다.</Text>
+              <Text style={styles.subtitle}>탐험가들과 발견을 공유해요!</Text>
             </View>
-          </RevealView>
-
-          <RevealView delay={80}>
-            <GlassPanel tone="sky" contentStyle={styles.radiusPanel}>
-              <View style={styles.radiusMark}>
-                <Text style={styles.radiusMarkText}>5km</Text>
-              </View>
-              <View style={styles.radiusBody}>
-                <Text style={styles.radiusTitle}>{statusTitle(locationStatus)}</Text>
-                <Text style={styles.radiusCopy}>{statusCopy(locationStatus)}</Text>
-              </View>
-            </GlassPanel>
           </RevealView>
 
           <View style={styles.feedHeader}>
             <Text style={styles.sectionTitle}>최근 발견</Text>
-            <StatusBadge label={hasLiveFeed ? 'Firestore 연결' : '셀 위치만 공개'} tone={hasLiveFeed ? 'blue' : 'green'} />
           </View>
 
           {feedStatus === 'loading' ? (
@@ -174,59 +164,87 @@ export function CommunityScreen() {
           ) : null}
 
           {visibleDiscoveries.map((item, index) => (
-            <RevealView key={item.id} delay={140 + index * 70}>
+            <CardNewsReveal key={item.id} index={index} scrollY={scrollY}>
               <DiscoveryCard item={item} />
-            </RevealView>
+            </CardNewsReveal>
           ))}
 
           {!hasLiveFeed ? (
-            <GlassCard tone={feedStatus === 'error' ? 'bloom' : 'strong'}>
+            <View style={styles.noticeCard}>
               <Text style={styles.noticeTitle}>{feedStatus === 'error' ? 'Firestore 연결 실패' : '미리보기 피드'}</Text>
               <Text style={styles.noticeBody}>
                 {feedStatus === 'error'
                   ? feedMessage ?? 'Firebase 프로젝트와 Firestore 규칙을 확인해 주세요.'
                   : '아직 주변 5km 안에 공개된 Firestore 발견이 없어서 예시 카드로 커뮤니티 흐름을 보여줍니다.'}
               </Text>
-            </GlassCard>
+            </View>
           ) : null}
-        </ScrollView>
+        </Animated.ScrollView>
       </SafeAreaView>
     </GradientScreen>
   );
 }
 
+function CardNewsReveal({ children, index, scrollY }: { children: ReactNode; index: number; scrollY: Animated.Value }) {
+  const inputStart = Math.max(0, index * 132 - 120);
+  const translateY = scrollY.interpolate({
+    inputRange: [inputStart, inputStart + 180, inputStart + 360],
+    outputRange: [34, 0, -8],
+    extrapolate: 'clamp',
+  });
+  const opacity = scrollY.interpolate({
+    inputRange: [inputStart, inputStart + 160],
+    outputRange: [0.76, 1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
 function DiscoveryCard({ item }: { item: DiscoveryCard }) {
   return (
-    <GlassCard tone="clear" contentStyle={styles.cardContent}>
-      <View style={styles.cardTop}>
-        <View style={[styles.speciesThumb, { backgroundColor: bloomColors[item.bloomState] ?? colors.mint }]}>
-          <Text style={styles.speciesThumbText}>{item.commonNameKo.slice(0, 1)}</Text>
+    <View style={styles.card}>
+      <View style={styles.userRow}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{avatarInitial(item.contributorName)}</Text>
         </View>
-        <View style={styles.cardTitleGroup}>
+        <View style={styles.userCopy}>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{item.contributorName ?? '익명 탐험가'}</Text>
+            <Text style={styles.levelBadge}>Lv.{Math.max(1, Math.round(item.confidence / 8))}</Text>
+          </View>
+          <Text style={styles.userMeta}>{item.observedAtLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardBodyRow}>
+        <View style={styles.discoveryPhoto}>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.discoveryImage} resizeMode="cover" />
+          ) : (
+            <Text style={styles.photoFallback}>{emojiForCard(item)}</Text>
+          )}
+        </View>
+
+        <View style={styles.discoveryCopy}>
           <Text style={styles.cardTitle}>{item.commonNameKo}</Text>
           <Text style={styles.scientific}>{item.scientificName}</Text>
-        </View>
-        {item.confidence > 0 ? (
-          <View style={styles.confidencePill}>
-            <Text style={styles.confidenceText}>{item.confidence}%</Text>
+          <Text style={styles.evidence}>{item.evidence}</Text>
+          <View style={styles.locationRow}>
+            <Text style={styles.locationIcon}>⌖</Text>
+            <Text style={styles.locationName}>{item.cellLabel}</Text>
           </View>
-        ) : null}
+        </View>
       </View>
 
-      <Text style={styles.evidence}>{item.evidence}</Text>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>{formatDistance(item.distanceMeters)} 근처</Text>
-        <Text style={styles.metaText}>{item.observedAtLabel}</Text>
-        <Text style={styles.metaText}>{item.contributorName ?? '익명 관찰자'}</Text>
-        <Text style={styles.metaText}>좋아요 {item.likeCount}</Text>
-        <Text style={styles.metaText}>댓글 {item.commentCount}</Text>
-      </View>
-
-      <Pressable accessibilityRole="button" style={styles.cellButton}>
-        <Text style={styles.cellButtonText}>{item.cellLabel}</Text>
+      <Pressable accessibilityRole="button" style={styles.moreButton}>
+        <Text style={styles.moreText}>•••</Text>
       </Pressable>
-    </GlassCard>
+    </View>
   );
 }
 
@@ -241,17 +259,11 @@ function toDiscoveryCard(item: FirebaseCommunityDiscovery): DiscoveryCard {
     contributorName: item.contributorName,
     bloomState: item.category === 'PLANT' ? 'GROWING' : item.category === 'ANIMAL' ? 'BLOOMED' : 'SEEDED',
     cellLabel: item.cellKey ? `${item.cellKey} 셀` : '주변 서식지 셀',
-    evidence: '공개 범위가 셀 단위로 설정된 주변 발견입니다.',
+    imageUrl: item.imageUrl,
+    evidence: `${item.cellKey ? `${item.cellKey} 셀` : '주변 서식지 셀'}에서 ${item.displayName}을 발견했어요! ${emojiForCategory(item.category, item.displayName)}`,
     likeCount: item.likeCount,
     commentCount: item.commentCount,
   };
-}
-
-function formatDistance(meters: number) {
-  if (meters < 1000) {
-    return `${meters}m`;
-  }
-  return `${(meters / 1000).toFixed(1)}km`;
 }
 
 function formatRelativeDate(value: string | null) {
@@ -275,30 +287,20 @@ function formatRelativeDate(value: string | null) {
   return `${Math.round(diffMinutes / 1440)}일 전`;
 }
 
-function statusTitle(status: LocationStatus) {
-  if (status === 'granted') {
-    return '현재 위치 기준';
-  }
-  if (status === 'denied') {
-    return '위치 권한 필요';
-  }
-  if (status === 'error') {
-    return '위치 확인 실패';
-  }
-  return '주변 범위 확인 중';
+function emojiForCard(item: DiscoveryCard) {
+  return emojiForCategory(item.bloomState === 'GROWING' ? 'PLANT' : item.bloomState === 'BLOOMED' ? 'ANIMAL' : 'OTHER', item.commonNameKo);
 }
 
-function statusCopy(status: LocationStatus) {
-  if (status === 'granted') {
-    return '내 주변 5km 안에서 공개된 발견을 모아 보여줍니다.';
-  }
-  if (status === 'denied') {
-    return '권한을 허용하면 가까운 셀의 발견을 거리순으로 볼 수 있습니다.';
-  }
-  if (status === 'error') {
-    return '지금은 미리보기 카드로 커뮤니티 흐름을 확인합니다.';
-  }
-  return '정확한 좌표는 공개하지 않고 셀 단위 거리만 사용합니다.';
+function emojiForCategory(category: string, name: string) {
+  if (/나비|butterfly/.test(name)) return '🦋';
+  if (/꽃|개망초|풀|plant|flower/.test(name) || category === 'PLANT') return '🌼';
+  if (/새|직박구리|bird/.test(name)) return '🐦';
+  if (category === 'ANIMAL') return '🐾';
+  return '✨';
+}
+
+function avatarInitial(name: string | null) {
+  return (name ?? '탐').slice(0, 1);
 }
 
 const styles = StyleSheet.create({
@@ -306,62 +308,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 16,
-    padding: 18,
+    gap: 18,
+    paddingHorizontal: 18,
+    paddingTop: 18,
     paddingBottom: 124,
   },
   header: {
-    gap: 6,
-    paddingTop: 8,
-  },
-  kicker: {
-    color: colors.moss,
-    fontSize: 13,
-    fontWeight: '900',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   title: {
-    color: colors.canopy,
-    fontSize: 40,
+    color: colors.moss,
+    fontSize: 34,
     fontWeight: '900',
   },
   subtitle: {
-    color: colors.text,
+    color: colors.muted,
     fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '700',
-  },
-  radiusPanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  radiusMark: {
-    width: 68,
-    height: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 34,
-    backgroundColor: colors.canopy,
-  },
-  radiusMarkText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  radiusBody: {
-    flex: 1,
-    gap: 4,
-  },
-  radiusTitle: {
-    color: colors.canopy,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  radiusCopy: {
-    color: colors.text,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   feedHeader: {
     flexDirection: 'row',
@@ -385,90 +351,150 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.ink,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  card: {
+    position: 'relative',
+    overflow: 'hidden',
+    gap: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(23, 34, 25, 0.06)',
+    padding: 16,
+    backgroundColor: '#FDF8F2',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 9 },
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(109, 175, 69, 0.16)',
+  },
+  avatarText: {
+    color: colors.moss,
     fontSize: 18,
     fontWeight: '900',
   },
-  cardContent: {
-    gap: 12,
+  userCopy: {
+    flex: 1,
+    gap: 2,
   },
-  cardTop: {
+  userNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  speciesThumb: {
-    width: 58,
-    height: 58,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.medium,
-    borderWidth: 1,
-    borderColor: colors.white,
-  },
-  speciesThumbText: {
-    color: colors.canopy,
-    fontSize: 22,
+  userName: {
+    color: colors.ink,
+    fontSize: 15,
     fontWeight: '900',
   },
-  cardTitleGroup: {
+  levelBadge: {
+    overflow: 'hidden',
+    borderRadius: radii.round,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    color: colors.moss,
+    fontSize: 12,
+    fontWeight: '900',
+    backgroundColor: 'rgba(185, 227, 127, 0.35)',
+  },
+  userMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardBodyRow: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  discoveryPhoto: {
+    width: 100,
+    height: 100,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(223, 241, 207, 0.76)',
+  },
+  discoveryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoFallback: {
+    fontSize: 46,
+    lineHeight: 54,
+  },
+  discoveryCopy: {
     flex: 1,
-    gap: 3,
+    minHeight: 100,
+    gap: 5,
   },
   cardTitle: {
     color: colors.ink,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
   },
   scientific: {
+    color: 'rgba(97, 113, 95, 0.58)',
+    fontSize: 12,
+    fontWeight: '300',
+  },
+  evidence: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  locationIcon: {
+    color: colors.muted,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  locationName: {
     color: colors.muted,
     fontSize: 12,
     fontWeight: '800',
   },
-  confidencePill: {
-    borderRadius: radii.round,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    backgroundColor: colors.cream,
-  },
-  confidenceText: {
-    color: colors.canopy,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  evidence: {
-    color: colors.text,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  metaText: {
-    overflow: 'hidden',
-    borderRadius: radii.round,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    color: colors.canopy,
-    fontSize: 11,
-    fontWeight: '900',
-    backgroundColor: 'rgba(255, 255, 255, 0.62)',
-  },
-  cellButton: {
-    minHeight: 42,
+  moreButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 34,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.round,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: 'rgba(255, 255, 255, 0.48)',
   },
-  cellButtonText: {
-    color: colors.canopy,
-    fontSize: 13,
+  moreText: {
+    color: colors.muted,
+    fontSize: 17,
     fontWeight: '900',
+    letterSpacing: 1,
+  },
+  noticeCard: {
+    gap: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(23, 34, 25, 0.06)',
+    padding: 16,
+    backgroundColor: '#FDF8F2',
   },
   noticeTitle: {
     color: colors.canopy,

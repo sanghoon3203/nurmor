@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { test } from 'node:test';
+
+const projectRoot = process.cwd();
+
+test('community screen uses the simplified feed header and hides removed location chrome', () => {
+  const source = readFileSync(join(projectRoot, 'src/features/community/CommunityScreen.tsx'), 'utf8');
+
+  assert.equal(source.includes('RevealView'), true);
+  assert.equal(source.includes('근방 5km 생태 소식'), false);
+  assert.equal(source.includes('정확한 좌표 없이'), false);
+  assert.equal(source.includes('현재 위치 기준'), false);
+  assert.equal(source.includes('radiusPanel'), false);
+  assert.equal(source.includes('좋아요 {item.likeCount}'), false);
+  assert.equal(source.includes('댓글 {item.commentCount}'), false);
+});
+
+test('community cards use photo-led card news layout and scroll-linked reveal motion', () => {
+  const source = readFileSync(join(projectRoot, 'src/features/community/CommunityScreen.tsx'), 'utf8');
+
+  assert.equal(source.includes("backgroundColor: '#FDF8F2'"), true);
+  assert.equal(source.includes('styles.discoveryPhoto'), true);
+  assert.equal(source.includes('styles.userRow'), true);
+  assert.equal(source.includes('fontSize: 16'), true);
+  assert.equal(source.includes("fontWeight: '900'"), true);
+  assert.equal(source.includes('fontSize: 12'), true);
+  assert.equal(source.includes("fontWeight: '300'"), true);
+  assert.equal(source.includes('Animated.ScrollView'), true);
+  assert.equal(source.includes('CardNewsReveal'), true);
+  assert.equal(source.includes('scrollY'), true);
+});

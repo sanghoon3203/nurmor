@@ -27,6 +27,7 @@ export type CodexCategory = 'PLANT' | 'ANIMAL' | 'OTHER';
 
 export type FirebaseCodexEntry = {
   id: string;
+  userId: string;
   habitatCellId: string;
   speciesKey: string;
   displayName: string;
@@ -275,6 +276,8 @@ export async function plantFirebaseObservation(
     displayName: input.candidate.commonNameKo,
     scientificName: input.candidate.scientificName,
     category,
+    // Media upload is stored on the observation draft today. Wire that Storage URL here
+    // before expecting the codex detail gallery to show real captured photos.
     imageUrl: null,
     discoveryNumber: existingCodex?.discoveryNumber ?? Date.now(),
     observationCount: (existingCodex?.observationCount ?? 0) + 1,
@@ -293,6 +296,8 @@ export async function plantFirebaseObservation(
       displayName: input.candidate.commonNameKo,
       scientificName: input.candidate.scientificName,
       category,
+      // Public same-species galleries read this field. It remains null until the
+      // planted observation carries a shareable Storage image URL.
       imageUrl: null,
       publicLat: input.observation.publicLat,
       publicLng: input.observation.publicLng,
@@ -474,6 +479,7 @@ function toCodexEntry(document: FirestoreDocument): FirebaseCodexEntry {
   const data = documentData(document);
   return {
     id: documentId(document.name),
+    userId: stringField(data, 'userId', ''),
     habitatCellId: stringField(data, 'habitatCellId', stringField(data, 'cellKey', '')),
     speciesKey: stringField(data, 'speciesKey', documentId(document.name)),
     displayName: stringField(data, 'displayName', '이름 없는 기록'),

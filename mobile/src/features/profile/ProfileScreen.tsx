@@ -1,22 +1,57 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getPublicEnv } from '../../config/env';
 import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
-import { StatusBadge } from '../atlas/ui';
 import { useAuth } from '../auth/AuthProvider';
-import { FirebaseUserProfile, getOrCreateUserProfile } from '../../services/firebaseAtlasDb';
-import { colors, radii } from '../../theme/tokens';
+import {
+  FirebaseCommunityDiscovery,
+  FirebaseUserProfile,
+  getOrCreateUserProfile,
+  listCommunityDiscoveries,
+} from '../../services/firebaseAtlasDb';
+import { colors, glass, radii } from '../../theme/tokens';
+
+type ReportStat = {
+  label: string;
+  value: number;
+  suffix?: string;
+};
+
+type FootprintStat = {
+  cellKey: string;
+  label: string;
+  reportCount: number;
+  color: string;
+};
+
+const publicDiscoveryQuery = {
+  latitude: 37.5665,
+  longitude: 126.978,
+  radiusKm: 20000,
+};
 
 export function ProfileScreen() {
   const auth = useAuth();
-  const env = getPublicEnv();
   const [profile, setProfile] = useState<FirebaseUserProfile | null>(null);
   const [profileStatus, setProfileStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [communityDiscoveries, setCommunityDiscoveries] = useState<FirebaseCommunityDiscovery[]>([]);
+  const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const displayName = profile?.displayName ?? (auth.status === 'authenticated' ? 'Atlas 탐험가' : '로그인 확인 중');
+  const userDiscoveries = useMemo(
+    () => communityDiscoveries.filter((discovery) => discovery.userId === auth.session?.localId),
+    [auth.session?.localId, communityDiscoveries]
+  );
+  const footprintStats = useMemo(() => buildFootprintStats(userDiscoveries), [userDiscoveries]);
+  const recentDiscoveries = useMemo(() => userDiscoveries.slice(0, 5), [userDiscoveries]);
+  const mainActivityCell = footprintStats[0]?.label ?? '공개한 기록 없음';
+  const reportStats: ReportStat[] = [
+    { label: '보고 횟수', value: profile?.reportCount ?? 0 },
+    { label: '발견 생물', value: profile?.speciesCount ?? 0, suffix: '종' },
+    { label: '업적 달성', value: profile?.achievementCount ?? 0, suffix: '개' },
+    { label: '탐험한 지역', value: footprintStats.length, suffix: '곳' },
+  ];
 
   useEffect(() => {
     let isMounted = true;
@@ -59,71 +94,103 @@ export function ProfileScreen() {
     };
   }, [auth.session?.idToken, auth.session?.localId]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDiscoveries() {
+      if (!auth.session?.idToken || !auth.session.localId) {
+        setCommunityDiscoveries([]);
+        setDiscoveryStatus('idle');
+        return;
+      }
+
+      setDiscoveryStatus('loading');
+      try {
+        const discoveries = await listCommunityDiscoveries(auth.session.idToken, publicDiscoveryQuery);
+        if (!isMounted) {
+          return;
+        }
+        setCommunityDiscoveries(discoveries);
+        setDiscoveryStatus('ready');
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setCommunityDiscoveries([]);
+        setDiscoveryStatus('error');
+      }
+    }
+
+    loadDiscoveries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auth.session?.idToken, auth.session?.localId]);
+
   return (
     <GradientScreen>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <RevealView>
             <View style={styles.header}>
-              <Text style={styles.kicker}>Atlas 계정</Text>
-              <Text style={styles.title}>마이</Text>
-              <Text style={styles.subtitle}>기록 공개 범위와 기여자 표시 방식을 관리합니다.</Text>
+              <Text style={styles.title}>마이페이지 🌱</Text>
+              <Text style={styles.subtitle}>나의 탐험 기록을 확인해보세요.</Text>
             </View>
           </RevealView>
 
           <RevealView delay={80}>
-            <GlassPanel tone="green" contentStyle={styles.identityPanel}>
+            <GlassPanel tone="green" contentStyle={styles.profilePanel}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+                {profile?.avatarUrl ? (
+                  <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+                )}
               </View>
-              <View style={styles.identityBody}>
-                <Text style={styles.identityTitle}>{displayName}</Text>
-                <Text style={styles.identityMeta}>{auth.session?.localId ? shortenUid(auth.session.localId) : auth.status}</Text>
+              <View style={styles.profileCopy}>
+                <Text style={styles.profileName}>{displayName}</Text>
+                <Text style={styles.profileMeta}>기여자 표시: {profile?.publicContributor ? '이름 표시' : '익명'}</Text>
+                <View style={styles.activityPill}>
+                  <Text style={styles.activityLabel}>공개한 기록 기준</Text>
+                  <Text style={styles.activityValue}>{mainActivityCell}</Text>
+                </View>
               </View>
-              <StatusBadge label={profileStatus === 'ready' ? 'Firestore' : auth.status === 'authenticated' ? '연결됨' : '확인'} tone={profileStatus === 'ready' ? 'blue' : 'green'} />
             </GlassPanel>
           </RevealView>
 
-          <View style={styles.buttonRow}>
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/login')}>
-              <Text style={styles.primaryButtonText}>로그인</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => router.push('/signup')}>
-              <Text style={styles.secondaryButtonText}>회원가입</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.statGrid}>
-            <StatBox label="보고횟수" value={profile?.reportCount ?? 0} />
-            <StatBox label="발견생물" value={profile?.speciesCount ?? 0} />
-            <StatBox label="업적달성" value={profile?.achievementCount ?? 0} />
-          </View>
-
-          <GlassCard tone="strong">
-            <Text style={styles.cardTitle}>기여자 표시</Text>
-            <Text style={styles.cardBody}>
-              기본값은 익명입니다. 현재 설정은 {profile?.publicContributor ? '셀 도감에 이름 표시' : '이름 비공개'} 상태입니다.
-            </Text>
-            <View style={styles.preferenceGrid}>
-              <View style={styles.preference}>
-                <Text style={styles.preferenceTitle}>정확 좌표</Text>
-                <Text style={styles.preferenceBody}>비공개</Text>
-              </View>
-              <View style={styles.preference}>
-                <Text style={styles.preferenceTitle}>공개 위치</Text>
-                <Text style={styles.preferenceBody}>셀 단위</Text>
-              </View>
+          <RevealView delay={140}>
+            <View style={styles.reportGrid}>
+              {reportStats.map((item) => (
+                <ReportBox key={item.label} stat={item} />
+              ))}
             </View>
-          </GlassCard>
+          </RevealView>
 
-          <GlassCard tone="sky">
-            <Text style={styles.cardTitle}>Firebase 연결</Text>
-            <Text style={styles.cardBody}>프로젝트 {env.firebaseProjectId || '미설정'} · Storage {env.firebaseStorageBucket || '미설정'}</Text>
-            <Text style={styles.cardBody}>Spring API는 {env.atlasApiBaseUrl || '현재 비활성화'} 상태입니다.</Text>
-            <Pressable accessibilityRole="button" style={styles.checkButton} onPress={() => void auth.signIn()}>
-              <Text style={styles.checkButtonText}>Firebase 세션 다시 확인</Text>
-            </Pressable>
-          </GlassCard>
+          <RevealView delay={200}>
+            <GlassCard tone="strong">
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>발자국 통계</Text>
+                  <Text style={styles.sectionSubtitle}>공개 또는 셀 공개로 심은 내 기록만 위치별로 모았어요.</Text>
+                </View>
+                <Text style={styles.syncState}>{discoveryStatus === 'loading' ? '확인 중' : `${footprintStats.length}곳`}</Text>
+              </View>
+              <FootprintHeatmap items={footprintStats} />
+            </GlassCard>
+          </RevealView>
+
+          <RevealView delay={260}>
+            <GlassCard tone="sky">
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>최근 발견 기록</Text>
+                  <Text style={styles.sectionSubtitle}>현재 데이터 규격에서 확인 가능한 공개 기록이에요.</Text>
+                </View>
+              </View>
+              <RecentDiscoveryStrip discoveries={recentDiscoveries} />
+            </GlassCard>
+          </RevealView>
 
           {profileStatus === 'error' ? (
             <GlassCard tone="bloom">
@@ -144,20 +211,139 @@ export function ProfileScreen() {
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
+function ReportBox({ stat }: { stat: ReportStat }) {
   return (
-    <View style={styles.statBox}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.reportBox}>
+      <Text style={styles.reportValue}>
+        {stat.value}
+        {stat.suffix ? <Text style={styles.reportSuffix}> {stat.suffix}</Text> : null}
+      </Text>
+      <Text style={styles.reportLabel}>{stat.label}</Text>
     </View>
   );
 }
 
-function shortenUid(uid: string) {
-  if (uid.length <= 14) {
-    return uid;
+function FootprintHeatmap({ items }: { items: FootprintStat[] }) {
+  if (items.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>공개한 발자국이 아직 없어요</Text>
+        <Text style={styles.emptyBody}>기록을 셀 단위 이상으로 공개하면 이곳에 위치별 통계가 쌓입니다.</Text>
+      </View>
+    );
   }
-  return `${uid.slice(0, 7)}...${uid.slice(-5)}`;
+
+  return (
+    <View style={styles.footprintWrap}>
+      <View style={styles.footprintGrid}>
+        {items.map((item) => (
+          <View key={item.cellKey} style={[styles.footprintCell, { backgroundColor: item.color }]}>
+            <Text style={styles.footprintLabel}>{item.label}</Text>
+            <Text style={styles.footprintCount}>{item.reportCount}회</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.legendRow}>
+        <Text style={styles.legendText}>적음</Text>
+        <View style={styles.legendTrack}>
+          <View style={[styles.legendBlock, { backgroundColor: colorForFootprintIntensity(0.2) }]} />
+          <View style={[styles.legendBlock, { backgroundColor: colorForFootprintIntensity(0.4) }]} />
+          <View style={[styles.legendBlock, { backgroundColor: colorForFootprintIntensity(0.6) }]} />
+          <View style={[styles.legendBlock, { backgroundColor: colorForFootprintIntensity(0.8) }]} />
+          <View style={[styles.legendBlock, { backgroundColor: colorForFootprintIntensity(1) }]} />
+        </View>
+        <Text style={styles.legendText}>많음</Text>
+      </View>
+    </View>
+  );
+}
+
+function RecentDiscoveryStrip({ discoveries }: { discoveries: FirebaseCommunityDiscovery[] }) {
+  if (discoveries.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>최근 공개 발견이 없어요</Text>
+        <Text style={styles.emptyBody}>비공개 기록은 현재 프로필 최근 목록에 표시하지 않습니다.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentStrip}>
+      {discoveries.map((discovery) => (
+        <View key={discovery.id} style={styles.recentItem}>
+          <View style={styles.recentThumb}>
+            {discovery.imageUrl ? (
+              <Image source={{ uri: discovery.imageUrl }} style={styles.recentImage} />
+            ) : (
+              <Text style={styles.recentFallback}>{emojiForDiscovery(discovery)}</Text>
+            )}
+          </View>
+          <Text numberOfLines={1} style={styles.recentName}>
+            {discovery.displayName}
+          </Text>
+          <Text numberOfLines={1} style={styles.recentLocation}>
+            {cellKeyLabel(discovery.cellKey)}
+          </Text>
+          <Text style={styles.recentDate}>{shortDate(discovery.createdAt)}</Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+function buildFootprintStats(discoveries: FirebaseCommunityDiscovery[]): FootprintStat[] {
+  const counts = new Map<string, number>();
+  discoveries.forEach((discovery) => {
+    counts.set(discovery.cellKey, (counts.get(discovery.cellKey) ?? 0) + 1);
+  });
+
+  const entries = [...counts.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8);
+  const maxCount = Math.max(1, ...entries.map(([, count]) => count));
+  return entries.map(([cellKey, reportCount]) => ({
+    cellKey,
+    label: cellKeyLabel(cellKey),
+    reportCount,
+    color: colorForFootprintIntensity(reportCount / maxCount),
+  }));
+}
+
+function colorForFootprintIntensity(value: number) {
+  const alpha = 0.28 + Math.max(0, Math.min(1, value)) * 0.58;
+  return `rgba(22, 63, 45, ${alpha.toFixed(2)})`;
+}
+
+function cellKeyLabel(cellKey: string) {
+  const [, lat, lng] = cellKey.split(':');
+  if (!lat || !lng) {
+    return cellKey;
+  }
+  return `셀 ${lat}/${lng}`;
+}
+
+function shortDate(value: string | null) {
+  if (!value) {
+    return '날짜 확인 중';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}.${month}.${day}`;
+}
+
+function emojiForDiscovery(discovery: FirebaseCommunityDiscovery) {
+  const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
+  if (/새|참새|bird|sparrow/.test(source)) return '🐦';
+  if (/개구리|frog/.test(source)) return '🐸';
+  if (/나비|butterfly/.test(source)) return '🦋';
+  if (/곤충|벌레|beetle|insect/.test(source)) return '🐞';
+  if (discovery.category === 'PLANT') return '🌿';
+  if (discovery.category === 'ANIMAL') return '🐾';
+  return '✨';
 }
 
 const styles = StyleSheet.create({
@@ -165,22 +351,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 16,
+    gap: 18,
     padding: 18,
     paddingBottom: 124,
   },
   header: {
-    gap: 6,
-    paddingTop: 8,
-  },
-  kicker: {
-    color: colors.moss,
-    fontSize: 13,
-    fontWeight: '900',
+    alignItems: 'center',
+    gap: 7,
+    paddingTop: 16,
   },
   title: {
     color: colors.canopy,
-    fontSize: 40,
+    fontSize: 34,
     fontWeight: '900',
   },
   subtitle: {
@@ -189,100 +371,234 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '700',
   },
-  identityPanel: {
+  profilePanel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 18,
   },
   avatar: {
-    width: 60,
-    height: 60,
+    width: 112,
+    height: 112,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 30,
+    overflow: 'hidden',
+    borderRadius: 56,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.86)',
     backgroundColor: colors.canopy,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: colors.white,
-    fontSize: 24,
+    fontSize: 42,
     fontWeight: '900',
   },
-  identityBody: {
+  profileCopy: {
     flex: 1,
-    gap: 4,
+    gap: 9,
   },
-  identityTitle: {
-    color: colors.canopy,
-    fontSize: 17,
+  profileName: {
+    color: colors.ink,
+    fontSize: 25,
     fontWeight: '900',
   },
-  identityMeta: {
+  profileMeta: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '800',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
+  activityPill: {
+    alignSelf: 'flex-start',
+    gap: 3,
+    borderRadius: radii.medium,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(253, 248, 242, 0.82)',
   },
-  statGrid: {
-    flexDirection: 'row',
-    gap: 10,
+  activityLabel: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '900',
   },
-  statBox: {
-    flex: 1,
-    minHeight: 78,
-    justifyContent: 'center',
-    gap: 5,
+  activityValue: {
+    color: colors.canopy,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  reportGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    overflow: 'hidden',
     borderRadius: radii.large,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: glass.hairline,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  },
+  reportBox: {
+    width: '50%',
+    minHeight: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderColor: 'rgba(22, 63, 45, 0.08)',
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
     padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.56)',
   },
-  statValue: {
+  reportValue: {
     color: colors.canopy,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
-    textAlign: 'center',
   },
-  statLabel: {
+  reportSuffix: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  reportLabel: {
     color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionTitle: {
+    color: colors.ink,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  sectionSubtitle: {
+    marginTop: 4,
+    color: colors.muted,
     fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  syncState: {
+    minWidth: 62,
+    overflow: 'hidden',
+    borderRadius: radii.round,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: colors.canopy,
+    fontSize: 11,
     fontWeight: '900',
     textAlign: 'center',
+    backgroundColor: 'rgba(223, 241, 207, 0.74)',
   },
-  primaryButton: {
-    flex: 1,
-    minHeight: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.round,
-    backgroundColor: colors.canopy,
+  footprintWrap: {
+    gap: 12,
   },
-  primaryButtonText: {
+  footprintGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  footprintCell: {
+    width: '48%',
+    minHeight: 72,
+    justifyContent: 'space-between',
+    borderRadius: radii.medium,
+    padding: 12,
+  },
+  footprintLabel: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
   },
-  secondaryButton: {
+  footprintCount: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendText: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  legendTrack: {
     flex: 1,
-    minHeight: 50,
+    height: 10,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderRadius: 5,
+  },
+  legendBlock: {
+    flex: 1,
+  },
+  recentStrip: {
+    gap: 14,
+    paddingRight: 4,
+  },
+  recentItem: {
+    width: 92,
+    gap: 4,
+  },
+  recentThumb: {
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.round,
-    borderWidth: 1,
-    borderColor: colors.line,
+    overflow: 'hidden',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 239, 181, 0.88)',
+  },
+  recentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  recentFallback: {
+    fontSize: 31,
+    lineHeight: 36,
+  },
+  recentName: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  recentLocation: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  recentDate: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  emptyState: {
+    gap: 5,
+    borderRadius: radii.medium,
+    padding: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.56)',
   },
-  secondaryButtonText: {
-    color: colors.canopy,
+  emptyTitle: {
+    color: colors.ink,
     fontSize: 14,
     fontWeight: '900',
   },
-  cardTitle: {
-    color: colors.canopy,
-    fontSize: 17,
+  emptyBody: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  errorTitle: {
+    color: colors.danger,
+    fontSize: 16,
     fontWeight: '900',
   },
   cardBody: {
@@ -290,43 +606,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
-  },
-  preferenceGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  preference: {
-    flex: 1,
-    gap: 5,
-    borderRadius: radii.medium,
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.48)',
-  },
-  preferenceTitle: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  preferenceBody: {
-    color: colors.canopy,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  checkButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.round,
-    backgroundColor: colors.leaf,
-  },
-  checkButtonText: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  errorTitle: {
-    color: colors.danger,
-    fontSize: 16,
-    fontWeight: '900',
   },
 });

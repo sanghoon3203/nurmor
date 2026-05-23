@@ -76,7 +76,7 @@ Atlas는 지도 위 HabitatCell을 중심으로 지역 생태계 관찰 데이�
 
 - `/mobile`에 Expo + React Native + TypeScript 앱을 생성했다.
 - Expo Router, Location, Image Picker, React Native Maps 기반 의존성을 추가했다.
-- `mobile/.env.example`에 프론트엔드 public env 목록을 추가했다.
+- `mobile/.env`에 로컬 프론트엔드 public env를 정리했다.
 - Firebase anonymous sign-in REST flow를 추가했다.
 - Firebase ID token persistence/refresh를 추가했다.
 - 초기 진입 logo dissolve + leaf curtain launch gate를 추가했다.

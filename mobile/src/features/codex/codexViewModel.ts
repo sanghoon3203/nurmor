@@ -21,6 +21,7 @@ export type CodexCardViewModel = {
   displayNumber: string;
   title: string;
   scientificName: string;
+  speciesKey?: string | null;
   category: Exclude<CodexFamily, 'ALL'>;
   categoryLabel: string;
   categoryIcon: CodexIcon;

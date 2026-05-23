@@ -200,8 +200,26 @@ export function CodexScreen() {
 }
 
 function CodexFieldCard({ entry }: { entry: CodexCardViewModel }) {
+  const openDetail = () => {
+    router.push({
+      pathname: '/codex-detail',
+      params: {
+        id: entry.id,
+        displayNumber: entry.displayNumber,
+        title: entry.title,
+        scientificName: entry.scientificName,
+        speciesKey: entry.speciesKey ?? entry.scientificName,
+        category: entry.category,
+        categoryLabel: entry.categoryLabel,
+        date: entry.date,
+        place: entry.place,
+        imageUrl: entry.imageUrl ?? '',
+      },
+    });
+  };
+
   return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}>
+    <Pressable accessibilityRole="button" onPress={openDetail} style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}>
       <View style={styles.cardTopRow}>
         <Text style={styles.numberPill}>{entry.displayNumber}</Text>
         <IconMark icon={entry.categoryIcon} selected={false} compact />
@@ -262,6 +280,7 @@ function toFlowCard(entry: CodexEntryResponse, index: number): CodexCardViewMode
     displayNumber: toDisplayNumber(index),
     title: entry.displayName,
     scientificName: entry.scientificName ?? entry.speciesKey,
+    speciesKey: entry.speciesKey,
     category: family,
     categoryLabel: codexFamilyLabel(family),
     categoryIcon: codexFamilyIcon(family),
@@ -284,6 +303,7 @@ function toRemoteCard(entry: FirebaseCodexEntry, index: number): CodexCardViewMo
     displayNumber: toDisplayNumber(index),
     title: entry.displayName,
     scientificName: entry.scientificName ?? entry.speciesKey,
+    speciesKey: entry.speciesKey,
     category: family,
     categoryLabel: codexFamilyLabel(family),
     categoryIcon: codexFamilyIcon(family),
@@ -303,6 +323,7 @@ function toSampleCard(entry: (typeof sampleEntries)[number], index: number): Cod
     displayNumber: toDisplayNumber(index),
     title: entry.title,
     scientificName: entry.scientificName,
+    speciesKey: entry.scientificName.toLowerCase().replace(/\s+/g, '-'),
     category: family,
     categoryLabel: codexFamilyLabel(family),
     categoryIcon: codexFamilyIcon(family),

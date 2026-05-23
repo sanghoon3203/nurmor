@@ -1,8 +1,9 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthProvider';
 import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
@@ -17,6 +18,21 @@ type DiscoveryState =
 
 type MapDiscovery = FirebaseCommunityDiscovery & {
   discoveryNumber: number;
+};
+
+type MapHabitatCell = {
+  id: string;
+  label: string;
+  centerLat: number;
+  centerLng: number;
+  bloomScore: number;
+  observationCount: number;
+  speciesCount: number;
+  contributorCount: number;
+  fillColor: string;
+  coordinates: Array<{ latitude: number; longitude: number }>;
+  highlights: Array<{ title: string; body: string }>;
+  featuredSpecies: Array<{ name: string; group: string; mark: string }>;
 };
 
 const fallbackRegion: Region = {
@@ -65,6 +81,75 @@ function demoDiscoveries(region: Region): MapDiscovery[] {
     distanceKm: Math.round((index + 1) * 3) / 10,
     discoveryNumber: index + 1,
   }));
+}
+
+function demoHabitatCells(region: Region): MapHabitatCell[] {
+  const seeds = [
+    { id: 'cell-jamsil-7', label: '잠실 7동', lat: 0.0048, lng: -0.001, score: 28, observations: 3, species: 2, color: 'rgba(202, 213, 185, 0.48)' },
+    { id: 'cell-jamsil-2-north', label: '잠실 2동', lat: 0.0024, lng: -0.0042, score: 55, observations: 8, species: 5, color: 'rgba(164, 198, 126, 0.5)' },
+    { id: 'cell-jamsil-6', label: '잠실 6동', lat: 0.0026, lng: 0.0034, score: 45, observations: 6, species: 4, color: 'rgba(174, 203, 143, 0.5)' },
+    { id: 'cell-jamsilbon', label: '잠실본동', lat: 0, lng: 0.0002, score: 62, observations: 11, species: 7, color: 'rgba(143, 184, 104, 0.5)' },
+    { id: 'cell-jamsil-4', label: '잠실 4동', lat: -0.0004, lng: 0.0057, score: 36, observations: 4, species: 3, color: 'rgba(186, 207, 158, 0.46)' },
+    { id: 'cell-jamsil-3', label: '잠실 3동', lat: -0.0041, lng: -0.0011, score: 87, observations: 27, species: 42, color: 'rgba(184, 218, 95, 0.58)' },
+    { id: 'cell-jamsil-5', label: '잠실 5동', lat: -0.0042, lng: 0.0046, score: 51, observations: 7, species: 5, color: 'rgba(178, 203, 132, 0.47)' },
+    { id: 'cell-jamsil-9-west', label: '잠실 9동', lat: -0.0075, lng: -0.0043, score: 19, observations: 1, species: 1, color: 'rgba(210, 203, 190, 0.48)' },
+    { id: 'cell-jamsil-9', label: '잠실 9동', lat: -0.0082, lng: 0.0013, score: 24, observations: 2, species: 2, color: 'rgba(207, 200, 188, 0.48)' },
+  ];
+
+  return seeds.map((seed, index) => {
+    const centerLat = region.latitude + seed.lat;
+    const centerLng = region.longitude + seed.lng;
+    return {
+      id: seed.id,
+      label: seed.label,
+      centerLat,
+      centerLng,
+      bloomScore: seed.score,
+      observationCount: seed.observations,
+      speciesCount: seed.species,
+      contributorCount: Math.max(2, Math.round(seed.observations / 2)),
+      fillColor: seed.color,
+      coordinates: organicCellCoordinates(centerLat, centerLng, 0.0025, 0.0022, index),
+      highlights: [
+        { title: '수변 녹지', body: '공원과 물길 주변 기록이 셀 점수를 끌어올렸습니다.' },
+        { title: '도시 숲', body: '조류와 작은 포유류 관찰이 꾸준히 쌓이고 있습니다.' },
+        { title: '산책로', body: '저녁 시간대 발견 기록이 가장 활발합니다.' },
+      ],
+      featuredSpecies: [
+        { name: '참새', group: '조류', mark: '🐦' },
+        { name: '청개구리', group: '양서류', mark: '🐸' },
+        { name: '호랑나비', group: '곤충', mark: '🦋' },
+        { name: '다람쥐', group: '포유류', mark: '🐿' },
+      ],
+    } satisfies MapHabitatCell;
+  });
+}
+
+function organicCellCoordinates(
+  centerLat: number,
+  centerLng: number,
+  latRadius: number,
+  lngRadius: number,
+  seed: number
+) {
+  const points = [
+    [-0.96, -0.28],
+    [-0.68, -0.88],
+    [0.04, -1],
+    [0.72, -0.74],
+    [0.96, -0.08],
+    [0.66, 0.78],
+    [-0.02, 1],
+    [-0.78, 0.66],
+  ];
+
+  return points.map(([latOffset, lngOffset], index) => {
+    const wobble = 1 + (((seed + index) % 3) - 1) * 0.09;
+    return {
+      latitude: centerLat + latOffset * latRadius * wobble,
+      longitude: centerLng + lngOffset * lngRadius * (2 - wobble),
+    };
+  });
 }
 
 function numberedDiscoveries(discoveries: FirebaseCommunityDiscovery[]): MapDiscovery[] {
@@ -119,8 +204,10 @@ function emojiForDiscovery(discovery: FirebaseCommunityDiscovery) {
 
 export function MapHomeScreen() {
   const auth = useAuth();
+  const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
   const cardMotion = useRef(new Animated.Value(0)).current;
+  const reportPanelMotion = useRef(new Animated.Value(0)).current;
   const [locationState, setLocationState] = useState<LocationState>({
     status: 'loading',
     location: null,
@@ -132,8 +219,10 @@ export function MapHomeScreen() {
     message: null,
   });
   const [selectedDiscoveryId, setSelectedDiscoveryId] = useState<string | null>(null);
+  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
 
   const region = useMemo(() => regionFromLocation(locationState), [locationState]);
+  const habitatCells = useMemo(() => demoHabitatCells(region), [region]);
   const discoveries = useMemo(
     () => (discoveryState.status === 'ready' ? discoveryState.discoveries : demoDiscoveries(region)),
     [discoveryState.discoveries, region]
@@ -141,6 +230,10 @@ export function MapHomeScreen() {
   const selectedDiscovery = useMemo(
     () => discoveries.find((discovery) => discovery.id === selectedDiscoveryId) ?? null,
     [discoveries, selectedDiscoveryId]
+  );
+  const selectedCell = useMemo(
+    () => habitatCells.find((cell) => cell.id === selectedCellId) ?? null,
+    [habitatCells, selectedCellId]
   );
 
   const showDiscovery = useCallback(
@@ -157,6 +250,36 @@ export function MapHomeScreen() {
       );
     },
     [region.latitudeDelta, region.longitudeDelta]
+  );
+
+  const closeCellReport = useCallback(() => {
+    Animated.timing(reportPanelMotion, {
+      toValue: 0,
+      duration: 220,
+      easing: EasingOutCubic,
+      useNativeDriver: true,
+    }).start(() => setSelectedCellId(null));
+  }, [reportPanelMotion]);
+
+  const toggleCellReport = useCallback(
+    (cell: MapHabitatCell) => {
+      if (selectedCellId === cell.id) {
+        closeCellReport();
+        return;
+      }
+      setSelectedCellId(cell.id);
+      setSelectedDiscoveryId(null);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: cell.centerLat,
+          longitude: cell.centerLng,
+          latitudeDelta: region.latitudeDelta,
+          longitudeDelta: region.longitudeDelta,
+        },
+        420
+      );
+    },
+    [closeCellReport, region.latitudeDelta, region.longitudeDelta, selectedCellId]
   );
 
   const moveToCurrentLocation = useCallback(() => {
@@ -255,6 +378,15 @@ export function MapHomeScreen() {
     }).start();
   }, [cardMotion, selectedDiscovery]);
 
+  useEffect(() => {
+    Animated.timing(reportPanelMotion, {
+      toValue: selectedCell ? 1 : 0,
+      duration: 320,
+      easing: EasingOutCubic,
+      useNativeDriver: true,
+    }).start();
+  }, [reportPanelMotion, selectedCell]);
+
   return (
     <View style={styles.screen}>
       <MapView
@@ -266,6 +398,27 @@ export function MapHomeScreen() {
         showsMyLocationButton={false}
         mapType="standard"
       >
+        {habitatCells.map((cell) => (
+          <Polygon
+            key={cell.id}
+            coordinates={cell.coordinates}
+            fillColor={selectedCell?.id === cell.id ? 'rgba(184, 218, 95, 0.72)' : cell.fillColor}
+            strokeColor={selectedCell?.id === cell.id ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.84)'}
+            strokeWidth={selectedCell?.id === cell.id ? 4 : 3}
+            tappable
+            onPress={() => toggleCellReport(cell)}
+          />
+        ))}
+        {habitatCells.map((cell) => (
+          <Marker
+            key={`${cell.id}-label`}
+            coordinate={{ latitude: cell.centerLat, longitude: cell.centerLng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => toggleCellReport(cell)}
+          >
+            <CellLabelMarker label={cell.label} selected={selectedCell?.id === cell.id} />
+          </Marker>
+        ))}
         {discoveries.map((discovery) => (
           <Marker
             key={discovery.id}
@@ -285,8 +438,17 @@ export function MapHomeScreen() {
         </View>
 
         <View pointerEvents="box-none" style={styles.discoveryCardAnchor}>
-          {selectedDiscovery ? <DiscoveryCard discovery={selectedDiscovery} motion={cardMotion} /> : null}
+          {selectedDiscovery && !selectedCell ? <DiscoveryCard discovery={selectedDiscovery} motion={cardMotion} /> : null}
         </View>
+
+        {selectedCell ? (
+          <CellEcologyReport
+            cell={selectedCell}
+            motion={reportPanelMotion}
+            onClose={closeCellReport}
+            style={{ bottom: Math.max(insets.bottom + 86, 108) }}
+          />
+        ) : null}
 
         <View pointerEvents="box-none" style={styles.statusAnchor}>
           {discoveryState.status === 'loading' ? (
@@ -315,10 +477,20 @@ export function MapHomeScreen() {
   );
 }
 
+const EasingOutCubic = (value: number) => 1 - Math.pow(1 - value, 3);
+
 function DiscoveryMarker({ discovery, selected }: { discovery: FirebaseCommunityDiscovery; selected: boolean }) {
   return (
     <View style={[styles.discoveryMarker, selected ? styles.discoveryMarkerSelected : null]}>
       <Text style={styles.discoveryEmoji}>{emojiForDiscovery(discovery)}</Text>
+    </View>
+  );
+}
+
+function CellLabelMarker({ label, selected }: { label: string; selected: boolean }) {
+  return (
+    <View style={[styles.cellLabelMarker, selected ? styles.cellLabelMarkerSelected : null]}>
+      <Text style={[styles.cellLabelText, selected ? styles.cellLabelTextSelected : null]}>{label}</Text>
     </View>
   );
 }
@@ -367,6 +539,130 @@ function MapControl({ symbol, label, onPress }: { symbol: string; label: string;
     <Pressable accessibilityLabel={label} accessibilityRole="button" style={styles.mapControl} onPress={onPress}>
       <Text style={styles.mapControlText}>{symbol}</Text>
     </Pressable>
+  );
+}
+
+function CellEcologyReport({
+  cell,
+  motion,
+  onClose,
+  style,
+}: {
+  cell: MapHabitatCell;
+  motion: Animated.Value;
+  onClose: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reportHandleResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 36 || gesture.vy > 0.85) {
+            onClose();
+          }
+        },
+      }),
+    [onClose]
+  );
+
+  const togglePanelTranslateY = motion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [94, 0],
+  });
+  const togglePanelOpacity = motion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const blurRadius = motion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, 0],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.reportPanel,
+        style,
+        {
+          opacity: togglePanelOpacity,
+          transform: [{ translateY: togglePanelTranslateY }],
+        },
+      ]}
+    >
+      <View {...reportHandleResponder.panHandlers} style={styles.reportHandleZone}>
+        <View style={styles.reportHandle} />
+      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.reportContent}>
+        <View style={styles.reportHero}>
+          <View style={styles.reportTitleGroup}>
+            <Text style={styles.reportLeaf}>☘</Text>
+            <Text style={styles.reportTitle}>{cell.label}</Text>
+            <Text style={styles.reportSubtitle}>생태 보고서</Text>
+          </View>
+          <Text style={styles.reportBird}>🐦</Text>
+        </View>
+
+        <Text style={styles.reportIntro}>탐험가들의 기록을 모아 만든 지역 생태 보고서예요.</Text>
+
+        <View style={styles.reportStats}>
+          <ReportStat label="생태 점수" value={`${cell.bloomScore}`} suffix="/100" body={cell.bloomScore >= 80 ? '매우 건강해요' : '기록이 자라는 중'} />
+          <ReportStat label="발견된 생물 수" value={`${cell.speciesCount}`} suffix="종" body={`총 ${Math.max(cell.speciesCount * 3, cell.observationCount)} 마리`} />
+          <ReportStat label="탐험 기록 수" value={`${cell.observationCount}`} suffix="건" body="최근 30일 기준" />
+        </View>
+
+        <View style={styles.reportSection}>
+          <Text style={styles.reportSectionTitle}>지역 생태 특징</Text>
+          <Text style={styles.reportBody}>
+            {cell.label}은 수변 환경과 공원 녹지가 맞닿은 셀로, 조류와 곤충 기록이 안정적으로 쌓이고 있습니다.
+            정확 좌표는 숨기고 셀 단위 경향만 보여줘 서식지와 관찰자를 함께 보호합니다.
+          </Text>
+          <View style={styles.highlightRow}>
+            {cell.highlights.map((item) => (
+              <View key={item.title} style={styles.highlightCard}>
+                <Text style={styles.highlightTitle}>{item.title}</Text>
+                <Text style={styles.highlightBody}>{item.body}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.reportSection}>
+          <Text style={styles.reportSectionTitle}>주요 발견 생물</Text>
+          <View style={styles.speciesRow}>
+            {cell.featuredSpecies.map((item) => (
+              <View key={item.name} style={styles.speciesItem}>
+                <Text style={styles.speciesMark}>{item.mark}</Text>
+                <Text style={styles.speciesName}>{item.name}</Text>
+                <Text style={styles.speciesGroup}>{item.group}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.reportActions}>
+          <Pressable accessibilityRole="button" style={styles.closeReportButton} onPress={onClose}>
+            <Text style={styles.closeReportText}>닫기</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" style={styles.shareReportButton}>
+            <Text style={styles.shareReportText}>공유하기</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
+function ReportStat({ label, value, suffix, body }: { label: string; value: string; suffix: string; body: string }) {
+  return (
+    <View style={styles.reportStat}>
+      <Text style={styles.reportStatLabel}>{label}</Text>
+      <View style={styles.reportStatValueRow}>
+        <Text style={styles.reportStatValue}>{value}</Text>
+        <Text style={styles.reportStatSuffix}>{suffix}</Text>
+      </View>
+      <Text style={styles.reportStatBody}>{body}</Text>
+    </View>
   );
 }
 
@@ -426,6 +722,27 @@ const styles = StyleSheet.create({
   },
   discoveryEmoji: {
     fontSize: 24,
+  },
+  cellLabelMarker: {
+    minWidth: 70,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  cellLabelMarkerSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  },
+  cellLabelText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  cellLabelTextSelected: {
+    color: colors.canopy,
   },
   discoveryCardAnchor: {
     position: 'absolute',
@@ -544,5 +861,215 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  reportPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 108,
+    maxHeight: '62%',
+    overflow: 'hidden',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: 'rgba(255, 253, 244, 0.96)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 18 },
+  },
+  reportHandleZone: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    height: 34,
+    paddingTop: 8,
+  },
+  reportHandle: {
+    width: 150,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(23, 34, 25, 0.16)',
+  },
+  reportContent: {
+    gap: 16,
+    padding: 18,
+    paddingBottom: 24,
+  },
+  reportHero: {
+    minHeight: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  reportTitleGroup: {
+    flex: 1,
+  },
+  reportLeaf: {
+    color: colors.moss,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  reportTitle: {
+    color: colors.ink,
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  reportSubtitle: {
+    color: colors.moss,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  reportBird: {
+    fontSize: 58,
+    lineHeight: 66,
+  },
+  reportIntro: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  reportStats: {
+    flexDirection: 'row',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(23, 34, 25, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+  },
+  reportStat: {
+    flex: 1,
+    minHeight: 126,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+  },
+  reportStatLabel: {
+    color: colors.moss,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  reportStatValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  reportStatValue: {
+    color: colors.canopy,
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  reportStatSuffix: {
+    marginBottom: 5,
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  reportStatBody: {
+    color: colors.text,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  reportSection: {
+    gap: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(23, 34, 25, 0.08)',
+    padding: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
+  },
+  reportSectionTitle: {
+    color: colors.ink,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  reportBody: {
+    color: colors.text,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  highlightRow: {
+    gap: 8,
+  },
+  highlightCard: {
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: 'rgba(223, 241, 207, 0.62)',
+  },
+  highlightTitle: {
+    color: colors.canopy,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  highlightBody: {
+    marginTop: 3,
+    color: colors.text,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  speciesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  speciesItem: {
+    width: '47%',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(246, 251, 244, 0.8)',
+  },
+  speciesMark: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  speciesName: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  speciesGroup: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  reportActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  closeReportButton: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+  },
+  closeReportText: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  shareReportButton: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: colors.moss,
+  },
+  shareReportText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '900',
   },
 });

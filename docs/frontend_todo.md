@@ -15,10 +15,9 @@ opening -> login -> map -> capture -> Firebase Storage -> Firestore observation 
 - [x] `/mobile` Expo TypeScript 앱 생성
 - [x] Expo Router 추가
 - [x] Location/Image Picker/Map dependencies 추가
-- [x] `mobile/.env.example` 추가
 - [x] 최소 앱 진입 화면 추가
 - [x] logo dissolve + leaf curtain 초기 진입 UX 추가
-- [ ] `mobile/.env` 작성
+- [x] `mobile/.env`에 local public env 정리
 - [ ] iOS simulator 또는 Expo Go 실행 확인
 - [ ] Android 실행 확인
 
