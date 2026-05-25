@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -104,6 +105,8 @@ export function CodexScreen() {
   const counts = useMemo(() => countByFamily(cards), [cards]);
   const selectedLabel = codexFilters.find((item) => item.value === filter)?.label ?? '전체';
   const hasLiveEntries = flow.state.codexEntries.length > 0 || remoteEntries.length > 0;
+  const featuredCard = filteredCards[0] ?? null;
+  const gridCards = featuredCard ? filteredCards.slice(1) : filteredCards;
 
   return (
     <GradientScreen style={styles.screen}>
@@ -144,6 +147,12 @@ export function CodexScreen() {
             </ScrollView>
           </RevealView>
 
+          {featuredCard ? (
+            <RevealView delay={105}>
+              <CodexFeaturedGlassCard entry={featuredCard} />
+            </RevealView>
+          ) : null}
+
           <RevealView delay={110}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>
@@ -162,7 +171,7 @@ export function CodexScreen() {
           </RevealView>
 
           <View style={styles.grid}>
-            {filteredCards.map((entry, index) => (
+            {gridCards.map((entry, index) => (
               <RevealView key={`${filter}-${entry.id}`} delay={140 + Math.min(index, 8) * 45} style={styles.gridItem}>
                 <CodexFieldCard entry={entry} />
               </RevealView>
@@ -199,23 +208,76 @@ export function CodexScreen() {
   );
 }
 
+function openCodexDetail(entry: CodexCardViewModel) {
+  router.push({
+    pathname: '/codex-detail',
+    params: {
+      id: entry.id,
+      displayNumber: entry.displayNumber,
+      title: entry.title,
+      scientificName: entry.scientificName,
+      speciesKey: entry.speciesKey ?? entry.scientificName,
+      category: entry.category,
+      categoryLabel: entry.categoryLabel,
+      date: entry.date,
+      place: entry.place,
+      imageUrl: entry.imageUrl ?? '',
+    },
+  });
+}
+
+function CodexFeaturedGlassCard({ entry }: { entry: CodexCardViewModel }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={() => openCodexDetail(entry)} style={({ pressed }) => [styles.featuredCard, pressed ? styles.cardPressed : null]}>
+      <View style={styles.featuredHeader}>
+        <View style={styles.featuredIconCircle}>
+          <IconMark icon={entry.categoryIcon} selected={false} />
+        </View>
+        <View style={styles.featuredHeaderText}>
+          <Text style={styles.featuredTitle} numberOfLines={1}>
+            {entry.title}
+          </Text>
+          <Text style={styles.featuredSubtitle} numberOfLines={1}>
+            {entry.scientificName}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.featuredImageLayer}>
+        {entry.imageUrl ? (
+          <Image source={{ uri: entry.imageUrl }} resizeMode="cover" style={styles.featuredImage} />
+        ) : (
+          <View style={styles.featuredFallbackScene}>
+            <Text style={styles.featuredFallbackSymbol}>{illustrationSymbol(entry.illustration, entry.title)}</Text>
+          </View>
+        )}
+      </View>
+
+      <BlurView intensity={90} tint="dark" style={styles.featuredBlurPanel}>
+        <View style={styles.featuredBlurGradient} />
+        <View style={styles.featuredBlurGradientLift} />
+        <View style={styles.featuredBlurGradientBase} />
+        <BlurView intensity={34} tint="light" style={styles.featuredRegionGlass}>
+          <Text style={styles.featuredRegionText}>{entry.categoryLabel}</Text>
+        </BlurView>
+        <Text style={styles.featuredPlace} numberOfLines={1}>
+          {entry.place}
+        </Text>
+        <Text style={styles.featuredDescription} numberOfLines={2}>
+          {entry.title} 기록이 도감에 저장되었습니다. 발견 날짜는 {entry.date}입니다.
+        </Text>
+      </BlurView>
+
+      <BlurView intensity={34} tint="light" style={styles.featuredFollowGlass}>
+        <Text style={styles.featuredFollowText}>Follow +</Text>
+      </BlurView>
+    </Pressable>
+  );
+}
+
 function CodexFieldCard({ entry }: { entry: CodexCardViewModel }) {
   const openDetail = () => {
-    router.push({
-      pathname: '/codex-detail',
-      params: {
-        id: entry.id,
-        displayNumber: entry.displayNumber,
-        title: entry.title,
-        scientificName: entry.scientificName,
-        speciesKey: entry.speciesKey ?? entry.scientificName,
-        category: entry.category,
-        categoryLabel: entry.categoryLabel,
-        date: entry.date,
-        place: entry.place,
-        imageUrl: entry.imageUrl ?? '',
-      },
-    });
+    openCodexDetail(entry);
   };
 
   return (
@@ -484,6 +546,165 @@ const styles = StyleSheet.create({
   },
   filterCountSelected: {
     color: colors.white,
+  },
+  featuredCard: {
+    alignSelf: 'center',
+    width: 350,
+    maxWidth: '100%',
+    height: 390,
+    overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+    backgroundColor: '#fffdf4',
+    shadowColor: colors.canopy,
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+    marginBottom: 22,
+  },
+  featuredHeader: {
+    position: 'absolute',
+    top: 19,
+    left: 26,
+    right: 22,
+    zIndex: 4,
+    minHeight: 43,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 23,
+  },
+  featuredIconCircle: {
+    width: 44,
+    height: 43,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: '#fff8e5',
+  },
+  featuredHeaderText: {
+    flex: 1,
+    gap: 4,
+  },
+  featuredTitle: {
+    color: '#070707',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  featuredSubtitle: {
+    color: '#bdbdbd',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  featuredImageLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 350,
+    height: 300,
+    overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 248, 232, 0.55)',
+  },
+  featuredImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.82,
+  },
+  featuredFallbackScene: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(223, 241, 207, 0.7)',
+  },
+  featuredFallbackSymbol: {
+    fontSize: 112,
+    lineHeight: 124,
+  },
+  featuredBlurPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 350,
+    height: 130,
+    overflow: 'hidden',
+    borderRadius: 24,
+    paddingLeft: 29,
+    paddingTop: 12,
+    paddingRight: 96,
+  },
+  featuredBlurGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(23, 34, 25, 0.18)',
+    borderRadius: 24,
+  },
+  featuredBlurGradientLift: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  featuredBlurGradientBase: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 96,
+    backgroundColor: 'rgba(23, 34, 25, 0.34)',
+  },
+  featuredRegionGlass: {
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(206, 105, 33, 0.34)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  featuredRegionText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  featuredPlace: {
+    marginTop: 8,
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  featuredDescription: {
+    marginTop: 6,
+    color: colors.white,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '300',
+  },
+  featuredFollowGlass: {
+    position: 'absolute',
+    right: 24,
+    bottom: 17,
+    zIndex: 5,
+    minWidth: 61,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.26)',
+  },
+  featuredFollowText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '400',
   },
   sectionRow: {
     flexDirection: 'row',

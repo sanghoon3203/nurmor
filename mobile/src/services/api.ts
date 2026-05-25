@@ -3,6 +3,8 @@ import { getPublicEnv } from '../config/env';
 export type HabitatCell = {
   id: string;
   cellKey: string;
+  regionName?: string;
+  description?: string;
   centerLat: number;
   centerLng: number;
   bloomState: string;
@@ -10,6 +12,8 @@ export type HabitatCell = {
   observationCount: number;
   speciesCount: number;
   contributorCount: number;
+  habitatTypes?: string[];
+  boundaryCoordinates?: Array<{ latitude: number; longitude: number }>;
 };
 
 export type HealthResponse = {
@@ -49,8 +53,10 @@ export type ObservationResponse = {
   id: string;
   habitatCellId: string;
   status: string;
+  visibility?: 'PRIVATE' | 'CELL' | 'PUBLIC' | string;
   publicLat: number;
   publicLng: number;
+  capturedAt?: string;
 };
 
 export type AnalysisCandidateResponse = {
@@ -81,8 +87,66 @@ export type CodexEntryResponse = {
   displayName: string;
   scientificName?: string | null;
   category?: string;
+  displayGroup?: SpeciesDisplayGroup;
+  representativeMediaKey?: string | null;
+  discoveryNumber?: number;
   observationCount: number;
   bestConfidence: number;
+};
+
+export type SpeciesDisplayGroup =
+  | 'PLANT'
+  | 'ANIMAL'
+  | 'BIRD'
+  | 'FISH'
+  | 'INSECT'
+  | 'AMPHIBIAN'
+  | 'REPTILE'
+  | 'MAMMAL'
+  | 'FUNGI'
+  | 'OTHER';
+
+export type MapDiscoveryResponse = {
+  discoveryId: string;
+  habitatCellId: string;
+  codexNumber: number;
+  displayName: string;
+  scientificName: string | null;
+  displayGroup: SpeciesDisplayGroup;
+  confidence: number;
+  distanceKm: number;
+  publicLat: number;
+  publicLng: number;
+  capturedAt: string | null;
+  contributorName: string;
+  imageUrl: string | null;
+  regionName: string;
+  likeCount: number;
+  commentCount: number;
+};
+
+export type HabitatCellReportSpecies = {
+  codexEntryId: string;
+  displayName: string;
+  scientificName: string | null;
+  displayGroup: SpeciesDisplayGroup;
+  description: string;
+  imageUrl: string | null;
+  observationCount: number;
+};
+
+export type HabitatCellReport = {
+  habitatCellId: string;
+  regionName: string;
+  summary: string;
+  terrainDescription: string;
+  habitatTypes: string[];
+  bloomScore: number;
+  observationCount: number;
+  speciesCount: number;
+  featuredSpecies: HabitatCellReportSpecies[];
+  representativeImages: Array<{ imageUrl: string; label: string }>;
+  recentDiscoveries: MapDiscoveryResponse[];
 };
 
 export class ApiError extends Error {
@@ -128,6 +192,17 @@ export function getNearbyHabitatCells(idToken: string, query?: NearbyHabitatCell
   return requestJson<HabitatCell[]>(path, idToken);
 }
 
+export function getMapDiscoveries(idToken: string, query: NearbyHabitatCellQuery) {
+  return requestJson<MapDiscoveryResponse[]>(
+    `/api/map/discoveries?${new URLSearchParams({
+      lat: String(query.latitude),
+      lng: String(query.longitude),
+      radiusKm: String(query.radiusKm ?? 5),
+    }).toString()}`,
+    idToken
+  );
+}
+
 export function registerMediaAsset(idToken: string, request: RegisterMediaAssetRequest) {
   return postJson<MediaAssetResponse>('/api/media/register', idToken, request);
 }
@@ -152,6 +227,10 @@ export function plantObservation(idToken: string, observationId: string, request
 
 export function getCodexEntries(idToken: string, habitatCellId: string) {
   return requestJson<CodexEntryResponse[]>(`/api/habitat-cells/${encodeURIComponent(habitatCellId)}/codex`, idToken);
+}
+
+export function getHabitatCellReport(idToken: string, habitatCellId: string) {
+  return requestJson<HabitatCellReport>(`/api/habitat-cells/${encodeURIComponent(habitatCellId)}/report`, idToken);
 }
 
 function postJson<T>(path: string, idToken: string, body: unknown) {

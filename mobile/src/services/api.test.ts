@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 
-import { analyzeObservation, createObservation, getAnalysisJob, getCodexEntries, getNearbyHabitatCells, plantObservation, registerMediaAsset } from './api';
+import {
+  analyzeObservation,
+  createObservation,
+  getAnalysisJob,
+  getCodexEntries,
+  getHabitatCellReport,
+  getMapDiscoveries,
+  getNearbyHabitatCells,
+  plantObservation,
+  registerMediaAsset,
+} from './api';
 
 const originalFetch = global.fetch;
 const originalApiBaseUrl = process.env.EXPO_PUBLIC_ATLAS_API_BASE_URL;
@@ -116,6 +126,31 @@ test('getNearbyHabitatCells serializes location and radius query parameters', as
   });
 
   assert.equal(requests[0].url, 'http://atlas.test/api/habitat-cells/nearby?lat=37.5665&lng=126.978&radiusKm=5');
+  assert.deepEqual(requests[0].init?.headers, {
+    Accept: 'application/json',
+    Authorization: 'Bearer token-123',
+  });
+});
+
+test('map discovery and habitat report clients call Java API contracts', async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  global.fetch = async (url, init) => {
+    requests.push({ url: String(url), init });
+    if (String(url).includes('/report')) {
+      return jsonResponse({ habitatCellId: 'cell-1', featuredSpecies: [] });
+    }
+    return jsonResponse([]);
+  };
+
+  await getMapDiscoveries('token-123', {
+    latitude: 37.5665,
+    longitude: 126.978,
+    radiusKm: 5,
+  });
+  await getHabitatCellReport('token-123', 'cell-1');
+
+  assert.equal(requests[0].url, 'http://atlas.test/api/map/discoveries?lat=37.5665&lng=126.978&radiusKm=5');
+  assert.equal(requests[1].url, 'http://atlas.test/api/habitat-cells/cell-1/report');
   assert.deepEqual(requests[0].init?.headers, {
     Accept: 'application/json',
     Authorization: 'Bearer token-123',

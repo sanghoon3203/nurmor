@@ -2,9 +2,17 @@ package com.atlas.api.community;
 
 import com.atlas.api.analysis.SpeciesCandidate;
 import com.atlas.api.analysis.SpeciesCandidateRepository;
+import com.atlas.api.codex.CodexCategory;
+import com.atlas.api.codex.CodexEntry;
+import com.atlas.api.codex.CodexEntryRepository;
+import com.atlas.api.codex.DisplayGroup;
+import com.atlas.api.codex.SpeciesClassifier;
 import com.atlas.api.common.ApiException;
 import com.atlas.api.geo.GeoBounds;
 import com.atlas.api.geo.GeoMath;
+import com.atlas.api.habitat.HabitatCell;
+import com.atlas.api.habitat.HabitatCellRepository;
+import com.atlas.api.habitat.HabitatCellView;
 import com.atlas.api.observation.ObservationRecord;
 import com.atlas.api.observation.ObservationRecordRepository;
 import com.atlas.api.observation.ObservationStatus;
@@ -25,13 +33,19 @@ public class CommunityService {
     private final ObservationRecordRepository observationRecordRepository;
     private final SpeciesCandidateRepository speciesCandidateRepository;
     private final UserProfileRepository userProfileRepository;
+    private final CodexEntryRepository codexEntryRepository;
+    private final HabitatCellRepository habitatCellRepository;
 
     public CommunityService(ObservationRecordRepository observationRecordRepository,
                             SpeciesCandidateRepository speciesCandidateRepository,
-                            UserProfileRepository userProfileRepository) {
+                            UserProfileRepository userProfileRepository,
+                            CodexEntryRepository codexEntryRepository,
+                            HabitatCellRepository habitatCellRepository) {
         this.observationRecordRepository = observationRecordRepository;
         this.speciesCandidateRepository = speciesCandidateRepository;
         this.userProfileRepository = userProfileRepository;
+        this.codexEntryRepository = codexEntryRepository;
+        this.habitatCellRepository = habitatCellRepository;
     }
 
     @Transactional(readOnly = true)
@@ -57,21 +71,42 @@ public class CommunityService {
         SpeciesCandidate candidate = record.getSelectedSpeciesCandidateId() == null
             ? null
             : speciesCandidateRepository.findById(record.getSelectedSpeciesCandidateId()).orElse(null);
+        CodexEntry codexEntry = candidate == null
+            ? null
+            : codexEntryRepository.findByHabitatCellIdAndSpeciesKey(
+                record.getHabitatCellId(),
+                SpeciesClassifier.speciesKey(candidate.getCommonNameKo(), candidate.getScientificName())
+            ).orElse(null);
+        HabitatCell cell = habitatCellRepository.findById(record.getHabitatCellId()).orElse(null);
+        CodexCategory category = codexEntry == null ? CodexCategory.infer(displayName(candidate), scientificName(candidate)) : codexEntry.getCategory();
+        DisplayGroup displayGroup = SpeciesClassifier.displayGroup(displayName(candidate), scientificName(candidate), category);
         double distanceKm = GeoMath.haversineKm(lat, lng, record.getPublicLat(), record.getPublicLng());
         return new CommunityDiscoveryResponse(
             record.getId(),
             record.getHabitatCellId(),
-            candidate == null ? "알 수 없는 발견" : candidate.getCommonNameKo(),
-            candidate == null ? null : candidate.getScientificName(),
+            codexEntry == null ? 0 : codexEntry.getDiscoveryNumber(),
+            displayName(candidate),
+            scientificName(candidate),
+            displayGroup,
             candidate == null ? 0.0 : candidate.getConfidence(),
             Math.round(distanceKm * 10.0) / 10.0,
             record.getPublicLat(),
             record.getPublicLng(),
             record.getCapturedAt(),
             contributorName(record),
+            codexEntry == null ? null : codexEntry.getRepresentativeMediaKey(),
+            cell == null ? "주변 서식지 셀" : HabitatCellView.regionName(cell),
             0,
             0
         );
+    }
+
+    private static String displayName(SpeciesCandidate candidate) {
+        return candidate == null ? "알 수 없는 발견" : candidate.getCommonNameKo();
+    }
+
+    private static String scientificName(SpeciesCandidate candidate) {
+        return candidate == null ? null : candidate.getScientificName();
     }
 
     private String contributorName(ObservationRecord record) {

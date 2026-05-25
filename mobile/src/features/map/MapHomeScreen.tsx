@@ -6,7 +6,7 @@ import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthProvider';
-import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
+import { getHabitatCellReport, getMapDiscoveries, getNearbyHabitatCells, HabitatCell, HabitatCellReport, MapDiscoveryResponse, SpeciesDisplayGroup } from '../../services/api';
 import { colors, glass } from '../../theme/tokens';
 import { LocationState } from './types';
 
@@ -16,7 +16,28 @@ type DiscoveryState =
   | { status: 'ready'; discoveries: MapDiscovery[]; message: null }
   | { status: 'error'; discoveries: MapDiscovery[]; message: string };
 
-type MapDiscovery = FirebaseCommunityDiscovery & {
+type CellState =
+  | { status: 'idle'; cells: MapHabitatCell[]; message: null }
+  | { status: 'loading'; cells: MapHabitatCell[]; message: null }
+  | { status: 'ready'; cells: MapHabitatCell[]; message: null }
+  | { status: 'error'; cells: MapHabitatCell[]; message: string };
+
+type MapDiscovery = {
+  id: string;
+  observationId: string;
+  habitatCellId: string;
+  displayName: string;
+  scientificName: string | null;
+  displayGroup: SpeciesDisplayGroup;
+  imageUrl: string | null;
+  publicLat: number;
+  publicLng: number;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string | null;
+  distanceKm: number;
+  contributorName: string;
+  regionName: string;
   discoveryNumber: number;
 };
 
@@ -33,6 +54,7 @@ type MapHabitatCell = {
   coordinates: Array<{ latitude: number; longitude: number }>;
   highlights: Array<{ title: string; body: string }>;
   featuredSpecies: Array<{ name: string; group: string; mark: string }>;
+  report?: HabitatCellReport | null;
 };
 
 const fallbackRegion: Region = {
@@ -57,21 +79,20 @@ function regionFromLocation(locationState: LocationState): Region {
 
 function demoDiscoveries(region: Region): MapDiscovery[] {
   const items = [
-    { name: '수달', category: 'ANIMAL' as const, contributor: 'hy.19', lat: 0.0018, lng: -0.0014, createdAt: '2026-05-22T11:34:00.000Z' },
-    { name: '참새', category: 'ANIMAL' as const, contributor: '새벽관찰자', lat: -0.0028, lng: 0.0026, createdAt: '2026-05-18T08:12:00.000Z' },
-    { name: '민들레', category: 'PLANT' as const, contributor: '초록손', lat: 0.0042, lng: 0.003, createdAt: '2026-04-29T15:21:00.000Z' },
-    { name: '무당벌레', category: 'OTHER' as const, contributor: '곤충기록자', lat: -0.0044, lng: -0.002, createdAt: '2026-05-04T10:05:00.000Z' },
+    { name: '수달', displayGroup: 'MAMMAL' as const, contributor: 'hy.19', lat: 0.0018, lng: -0.0014, createdAt: '2026-05-22T11:34:00.000Z' },
+    { name: '참새', displayGroup: 'BIRD' as const, contributor: '새벽관찰자', lat: -0.0028, lng: 0.0026, createdAt: '2026-05-18T08:12:00.000Z' },
+    { name: '민들레', displayGroup: 'PLANT' as const, contributor: '초록손', lat: 0.0042, lng: 0.003, createdAt: '2026-04-29T15:21:00.000Z' },
+    { name: '무당벌레', displayGroup: 'INSECT' as const, contributor: '곤충기록자', lat: -0.0044, lng: -0.002, createdAt: '2026-05-04T10:05:00.000Z' },
   ];
 
   return items.map((item, index) => ({
     id: `demo-discovery-${index + 1}`,
     observationId: `demo-observation-${index + 1}`,
-    cellKey: `demo-cell-${index + 1}`,
-    userId: `demo-user-${index + 1}`,
+    habitatCellId: `demo-cell-${index + 1}`,
     contributorName: item.contributor,
     displayName: item.name,
     scientificName: null,
-    category: item.category,
+    displayGroup: item.displayGroup,
     imageUrl: null,
     publicLat: region.latitude + item.lat,
     publicLng: region.longitude + item.lng,
@@ -79,6 +100,7 @@ function demoDiscoveries(region: Region): MapDiscovery[] {
     commentCount: index,
     createdAt: item.createdAt,
     distanceKm: Math.round((index + 1) * 3) / 10,
+    regionName: `주변 생태 셀 ${index + 1}`,
     discoveryNumber: index + 1,
   }));
 }
@@ -125,6 +147,49 @@ function demoHabitatCells(region: Region): MapHabitatCell[] {
   });
 }
 
+function toMapHabitatCells(cells: HabitatCell[]): MapHabitatCell[] {
+  return cells.map((cell, index) => ({
+    id: cell.id,
+    label: cell.regionName?.trim() || cell.cellKey,
+    centerLat: cell.centerLat,
+    centerLng: cell.centerLng,
+    bloomScore: cell.bloomScore,
+    observationCount: cell.observationCount,
+    speciesCount: cell.speciesCount,
+    contributorCount: cell.contributorCount,
+    fillColor: fillColorForScore(cell.bloomScore),
+    coordinates: cell.boundaryCoordinates?.length
+      ? cell.boundaryCoordinates
+      : organicCellCoordinates(cell.centerLat, cell.centerLng, 0.0025, 0.0022, index),
+    highlights: habitatHighlights(cell.habitatTypes ?? []),
+    featuredSpecies: [],
+    report: null,
+  }));
+}
+
+function fillColorForScore(score: number) {
+  if (score >= 80) return 'rgba(128, 181, 68, 0.64)';
+  if (score >= 50) return 'rgba(164, 198, 126, 0.52)';
+  if (score >= 20) return 'rgba(202, 213, 185, 0.48)';
+  return 'rgba(207, 200, 188, 0.48)';
+}
+
+function habitatHighlights(types: string[]) {
+  const source = types.join(' ');
+  if (/LAKE|RIVER|WETLAND/.test(source)) {
+    return [
+      { title: '수변 서식지', body: '물가 주변 공개 기록이 이 셀의 핵심 단서입니다.' },
+      { title: '조류 활동', body: '물길과 녹지 사이를 오가는 생물 기록을 볼 수 있습니다.' },
+      { title: '습도 변화', body: '계절별 곤충과 식물 기록이 함께 쌓입니다.' },
+    ];
+  }
+  return [
+    { title: '도시 녹지', body: '작은 녹지와 산책 동선의 기록을 모았습니다.' },
+    { title: '반복 관찰', body: '같은 지역의 발견이 누적될수록 셀 점수가 올라갑니다.' },
+    { title: '공개 좌표', body: '정확 좌표 대신 셀 중심 좌표로 서식지를 보호합니다.' },
+  ];
+}
+
 function organicCellCoordinates(
   centerLat: number,
   centerLng: number,
@@ -152,10 +217,24 @@ function organicCellCoordinates(
   });
 }
 
-function numberedDiscoveries(discoveries: FirebaseCommunityDiscovery[]): MapDiscovery[] {
+function numberedDiscoveries(discoveries: MapDiscoveryResponse[]): MapDiscovery[] {
   return discoveries.map((discovery, index) => ({
-    ...discovery,
-    discoveryNumber: index + 1,
+    id: discovery.discoveryId,
+    observationId: discovery.discoveryId,
+    habitatCellId: discovery.habitatCellId,
+    displayName: discovery.displayName,
+    scientificName: discovery.scientificName,
+    displayGroup: discovery.displayGroup,
+    imageUrl: discovery.imageUrl,
+    publicLat: discovery.publicLat,
+    publicLng: discovery.publicLng,
+    likeCount: discovery.likeCount,
+    commentCount: discovery.commentCount,
+    createdAt: discovery.capturedAt,
+    distanceKm: discovery.distanceKm,
+    contributorName: discovery.contributorName,
+    regionName: discovery.regionName,
+    discoveryNumber: discovery.codexNumber > 0 ? discovery.codexNumber : index + 1,
   }));
 }
 
@@ -177,28 +256,29 @@ function dateLabel(value: string | null) {
   return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
 
-function categoryMeta(discovery: FirebaseCommunityDiscovery) {
-  const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
-  if (discovery.category === 'PLANT') {
+function categoryMeta(discovery: MapDiscovery) {
+  const source = `${discovery.displayName} ${discovery.scientificName ?? ''} ${discovery.displayGroup}`.toLowerCase();
+  if (discovery.displayGroup === 'PLANT') {
     return { label: '식물', mark: '🌿' };
   }
-  if (/곤충|벌레|나비|잠자리|beetle|butterfly|insect|ladybug/.test(source)) {
+  if (discovery.displayGroup === 'INSECT' || /곤충|벌레|나비|잠자리|beetle|butterfly|insect|ladybug/.test(source)) {
     return { label: '곤충', mark: '🐞' };
   }
-  if (discovery.category === 'ANIMAL') {
+  if (['ANIMAL', 'BIRD', 'FISH', 'AMPHIBIAN', 'REPTILE', 'MAMMAL'].includes(discovery.displayGroup)) {
     return { label: '동물', mark: '🐾' };
   }
   return { label: '기타', mark: '✨' };
 }
 
-function emojiForDiscovery(discovery: FirebaseCommunityDiscovery) {
+function emojiForDiscovery(discovery: MapDiscovery) {
   const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
   if (/수달|otter/.test(source)) return '🦦';
   if (/새|참새|조류|bird|sparrow/.test(source)) return '🐦';
   if (/나비|butterfly/.test(source)) return '🦋';
   if (/벌|무당벌레|beetle|ladybug/.test(source)) return '🐞';
-  if (discovery.category === 'PLANT') return '🌿';
-  if (discovery.category === 'ANIMAL') return '🐾';
+  if (discovery.displayGroup === 'PLANT') return '🌿';
+  if (discovery.displayGroup === 'INSECT') return '🐞';
+  if (['ANIMAL', 'BIRD', 'FISH', 'AMPHIBIAN', 'REPTILE', 'MAMMAL'].includes(discovery.displayGroup)) return '🐾';
   return '✨';
 }
 
@@ -218,11 +298,20 @@ export function MapHomeScreen() {
     discoveries: [],
     message: null,
   });
+  const [cellState, setCellState] = useState<CellState>({
+    status: 'idle',
+    cells: [],
+    message: null,
+  });
+  const [cellReports, setCellReports] = useState<Record<string, HabitatCellReport>>({});
   const [selectedDiscoveryId, setSelectedDiscoveryId] = useState<string | null>(null);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
 
   const region = useMemo(() => regionFromLocation(locationState), [locationState]);
-  const habitatCells = useMemo(() => demoHabitatCells(region), [region]);
+  const habitatCells = useMemo(
+    () => (cellState.status === 'ready' && cellState.cells.length > 0 ? cellState.cells : demoHabitatCells(region)),
+    [cellState.cells, cellState.status, region]
+  );
   const discoveries = useMemo(
     () => (discoveryState.status === 'ready' ? discoveryState.discoveries : demoDiscoveries(region)),
     [discoveryState.discoveries, region]
@@ -232,8 +321,11 @@ export function MapHomeScreen() {
     [discoveries, selectedDiscoveryId]
   );
   const selectedCell = useMemo(
-    () => habitatCells.find((cell) => cell.id === selectedCellId) ?? null,
-    [habitatCells, selectedCellId]
+    () => {
+      const cell = habitatCells.find((item) => item.id === selectedCellId) ?? null;
+      return cell ? { ...cell, report: cellReports[cell.id] ?? cell.report ?? null } : null;
+    },
+    [cellReports, habitatCells, selectedCellId]
   );
 
   const showDiscovery = useCallback(
@@ -262,7 +354,7 @@ export function MapHomeScreen() {
   }, [reportPanelMotion]);
 
   const toggleCellReport = useCallback(
-    (cell: MapHabitatCell) => {
+    async (cell: MapHabitatCell) => {
       if (selectedCellId === cell.id) {
         closeCellReport();
         return;
@@ -278,8 +370,16 @@ export function MapHomeScreen() {
         },
         420
       );
+      if (auth.session?.idToken && !cellReports[cell.id]) {
+        try {
+          const report = await getHabitatCellReport(auth.session.idToken, cell.id);
+          setCellReports((current) => ({ ...current, [cell.id]: report }));
+        } catch {
+          setCellReports((current) => current);
+        }
+      }
     },
-    [closeCellReport, region.latitudeDelta, region.longitudeDelta, selectedCellId]
+    [auth.session?.idToken, cellReports, closeCellReport, region.latitudeDelta, region.longitudeDelta, selectedCellId]
   );
 
   const moveToCurrentLocation = useCallback(() => {
@@ -328,8 +428,7 @@ export function MapHomeScreen() {
     }));
 
     try {
-      const nextDiscoveries = await listCommunityDiscoveries(
-        auth.session.idToken,
+      const query =
         locationState.status === 'granted'
           ? {
               latitude: locationState.location.coords.latitude,
@@ -340,14 +439,49 @@ export function MapHomeScreen() {
               latitude: fallbackRegion.latitude,
               longitude: fallbackRegion.longitude,
               radiusKm: 5,
-            }
-      );
+            };
+      const nextDiscoveries = await getMapDiscoveries(auth.session.idToken, query);
       setDiscoveryState({ status: 'ready', discoveries: numberedDiscoveries(nextDiscoveries), message: null });
     } catch (error) {
       setDiscoveryState({
         status: 'error',
         discoveries: [],
         message: error instanceof Error ? error.message : '주변 발견 데이터를 불러오지 못했습니다.',
+      });
+    }
+  }, [auth.session?.idToken, locationState]);
+
+  const loadCells = useCallback(async () => {
+    if (!auth.session?.idToken) {
+      return;
+    }
+
+    setCellState((current) => ({
+      status: 'loading',
+      cells: current.cells,
+      message: null,
+    }));
+
+    try {
+      const query =
+        locationState.status === 'granted'
+          ? {
+              latitude: locationState.location.coords.latitude,
+              longitude: locationState.location.coords.longitude,
+              radiusKm: 5,
+            }
+          : {
+              latitude: fallbackRegion.latitude,
+              longitude: fallbackRegion.longitude,
+              radiusKm: 5,
+            };
+      const nextCells = await getNearbyHabitatCells(auth.session.idToken, query);
+      setCellState({ status: 'ready', cells: toMapHabitatCells(nextCells), message: null });
+    } catch (error) {
+      setCellState({
+        status: 'error',
+        cells: [],
+        message: error instanceof Error ? error.message : '지역 셀 데이터를 불러오지 못했습니다.',
       });
     }
   }, [auth.session?.idToken, locationState]);
@@ -359,8 +493,9 @@ export function MapHomeScreen() {
   useEffect(() => {
     if (auth.status === 'authenticated') {
       loadDiscoveries();
+      loadCells();
     }
-  }, [auth.status, loadDiscoveries]);
+  }, [auth.status, loadCells, loadDiscoveries]);
 
   useEffect(() => {
     if (locationState.status === 'granted') {
@@ -479,7 +614,7 @@ export function MapHomeScreen() {
 
 const EasingOutCubic = (value: number) => 1 - Math.pow(1 - value, 3);
 
-function DiscoveryMarker({ discovery, selected }: { discovery: FirebaseCommunityDiscovery; selected: boolean }) {
+function DiscoveryMarker({ discovery, selected }: { discovery: MapDiscovery; selected: boolean }) {
   return (
     <View style={[styles.discoveryMarker, selected ? styles.discoveryMarkerSelected : null]}>
       <Text style={styles.discoveryEmoji}>{emojiForDiscovery(discovery)}</Text>
@@ -603,7 +738,7 @@ function CellEcologyReport({
           <Text style={styles.reportBird}>🐦</Text>
         </View>
 
-        <Text style={styles.reportIntro}>탐험가들의 기록을 모아 만든 지역 생태 보고서예요.</Text>
+        <Text style={styles.reportIntro}>{cell.report?.summary ?? '탐험가들의 기록을 모아 만든 지역 생태 보고서예요.'}</Text>
 
         <View style={styles.reportStats}>
           <ReportStat label="생태 점수" value={`${cell.bloomScore}`} suffix="/100" body={cell.bloomScore >= 80 ? '매우 건강해요' : '기록이 자라는 중'} />
@@ -614,7 +749,7 @@ function CellEcologyReport({
         <View style={styles.reportSection}>
           <Text style={styles.reportSectionTitle}>지역 생태 특징</Text>
           <Text style={styles.reportBody}>
-            {cell.label}은 수변 환경과 공원 녹지가 맞닿은 셀로, 조류와 곤충 기록이 안정적으로 쌓이고 있습니다.
+            {cell.report?.terrainDescription ?? `${cell.label}은 수변 환경과 공원 녹지가 맞닿은 셀로, 조류와 곤충 기록이 안정적으로 쌓이고 있습니다.`}
             정확 좌표는 숨기고 셀 단위 경향만 보여줘 서식지와 관찰자를 함께 보호합니다.
           </Text>
           <View style={styles.highlightRow}>
@@ -630,7 +765,14 @@ function CellEcologyReport({
         <View style={styles.reportSection}>
           <Text style={styles.reportSectionTitle}>주요 발견 생물</Text>
           <View style={styles.speciesRow}>
-            {cell.featuredSpecies.map((item) => (
+            {(cell.report?.featuredSpecies.length
+              ? cell.report.featuredSpecies.map((species) => ({
+                  name: species.displayName,
+                  group: speciesGroupLabel(species.displayGroup),
+                  mark: markForDisplayGroup(species.displayGroup),
+                }))
+              : cell.featuredSpecies
+            ).map((item) => (
               <View key={item.name} style={styles.speciesItem}>
                 <Text style={styles.speciesMark}>{item.mark}</Text>
                 <Text style={styles.speciesName}>{item.name}</Text>
@@ -664,6 +806,56 @@ function ReportStat({ label, value, suffix, body }: { label: string; value: stri
       <Text style={styles.reportStatBody}>{body}</Text>
     </View>
   );
+}
+
+function speciesGroupLabel(group: SpeciesDisplayGroup) {
+  switch (group) {
+    case 'PLANT':
+      return '식물';
+    case 'INSECT':
+      return '곤충';
+    case 'BIRD':
+      return '조류';
+    case 'FISH':
+      return '어류';
+    case 'AMPHIBIAN':
+      return '양서류';
+    case 'REPTILE':
+      return '파충류';
+    case 'MAMMAL':
+      return '포유류';
+    case 'FUNGI':
+      return '균류';
+    case 'ANIMAL':
+      return '동물';
+    case 'OTHER':
+      return '기타';
+  }
+}
+
+function markForDisplayGroup(group: SpeciesDisplayGroup) {
+  switch (group) {
+    case 'PLANT':
+      return '🌿';
+    case 'INSECT':
+      return '🐞';
+    case 'BIRD':
+      return '🐦';
+    case 'FISH':
+      return '🐟';
+    case 'AMPHIBIAN':
+      return '🐸';
+    case 'REPTILE':
+      return '🦎';
+    case 'MAMMAL':
+      return '🐾';
+    case 'FUNGI':
+      return '🍄';
+    case 'ANIMAL':
+      return '🐾';
+    case 'OTHER':
+      return '✨';
+  }
 }
 
 const styles = StyleSheet.create({

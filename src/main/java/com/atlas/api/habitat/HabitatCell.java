@@ -45,6 +45,18 @@ public class HabitatCell {
     @Column(nullable = false)
     private int contributorCount;
 
+    @Column(nullable = false, length = 120)
+    private String displayName;
+
+    @Column(nullable = false, length = 1000)
+    private String description;
+
+    @Column(nullable = false, length = 200)
+    private String habitatTypesCsv;
+
+    @Column(length = 4000)
+    private String boundaryGeoJson;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -61,6 +73,10 @@ public class HabitatCell {
         this.observationCount = 0;
         this.speciesCount = 0;
         this.contributorCount = 0;
+        this.displayName = "";
+        this.description = "";
+        this.habitatTypesCsv = "URBAN_GREEN";
+        this.boundaryGeoJson = null;
         this.updatedAt = Instant.now();
     }
 
@@ -112,6 +128,22 @@ public class HabitatCell {
 
     public int getContributorCount() {
         return contributorCount;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getHabitatTypesCsv() {
+        return habitatTypesCsv;
+    }
+
+    public String getBoundaryGeoJson() {
+        return boundaryGeoJson;
     }
 
     public Instant getUpdatedAt() {

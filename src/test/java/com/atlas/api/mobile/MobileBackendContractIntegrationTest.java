@@ -96,6 +96,11 @@ class MobileBackendContractIntegrationTest {
         assertThat(cells.getBody()).anySatisfy(cell ->
             assertThat(((Map<?, ?>) cell).get("id")).isEqualTo(seeded.habitatCellId().toString())
         );
+        Map<?, ?> cellItem = (Map<?, ?>) cells.getBody().stream()
+            .filter(cell -> seeded.habitatCellId().toString().equals(((Map<?, ?>) cell).get("id")))
+            .findFirst()
+            .orElseThrow();
+        assertThat(cellItem).containsKeys("regionName", "description", "habitatTypes", "boundaryCoordinates");
 
         ResponseEntity<Map> codex = restTemplate.exchange(
             "/api/codex?category=ANIMAL&page=0&size=20",
@@ -121,6 +126,43 @@ class MobileBackendContractIntegrationTest {
         assertThat(communityItem.containsKey("distanceKm")).isTrue();
         assertThat(communityItem.containsKey("likeCount")).isTrue();
         assertThat(communityItem.containsKey("commentCount")).isTrue();
+        assertThat(communityItem).containsKeys("codexNumber", "displayGroup", "imageUrl", "regionName");
+
+        ResponseEntity<List> mapDiscoveries = restTemplate.exchange(
+            "/api/map/discoveries?lat=37.5665&lng=126.9780&radiusKm=5",
+            HttpMethod.GET,
+            request("mobile-feed-user"),
+            List.class
+        );
+        assertThat(mapDiscoveries.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(mapDiscoveries.getBody()).hasSize(1);
+        assertThat((Map<?, ?>) mapDiscoveries.getBody().getFirst()).containsKeys(
+            "publicLat",
+            "publicLng",
+            "codexNumber",
+            "displayName",
+            "capturedAt",
+            "contributorName",
+            "displayGroup"
+        );
+
+        ResponseEntity<Map> report = restTemplate.exchange(
+            "/api/habitat-cells/%s/report".formatted(seeded.habitatCellId()),
+            HttpMethod.GET,
+            request("mobile-feed-user"),
+            Map.class
+        );
+        assertThat(report.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(report.getBody()).containsKeys(
+            "habitatCellId",
+            "regionName",
+            "summary",
+            "terrainDescription",
+            "featuredSpecies",
+            "representativeImages",
+            "recentDiscoveries"
+        );
+        assertThat((List<?>) report.getBody().get("featuredSpecies")).isNotEmpty();
     }
 
     private SeededObservation seedPlantedObservation(String token) {

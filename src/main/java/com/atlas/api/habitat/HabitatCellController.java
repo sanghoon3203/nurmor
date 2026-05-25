@@ -35,4 +35,9 @@ public class HabitatCellController {
     public HabitatCellResponse get(@PathVariable UUID id) {
         return HabitatCellResponse.from(service.get(id));
     }
+
+    @GetMapping("/{id}/report")
+    public HabitatCellReportResponse report(@PathVariable UUID id) {
+        return service.report(id);
+    }
 }

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
-import { FirebaseCommunityDiscovery, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
+import { getMapDiscoveries, MapDiscoveryResponse, SpeciesDisplayGroup } from '../../services/api';
 import { colors, radii } from '../../theme/tokens';
 
 type FeedStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -109,7 +109,7 @@ export function CommunityScreen() {
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        const nextDiscoveries = await listCommunityDiscoveries(auth.session.idToken, {
+        const nextDiscoveries = await getMapDiscoveries(auth.session.idToken, {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           radiusKm: 5,
@@ -123,7 +123,7 @@ export function CommunityScreen() {
       } catch {
         if (isMounted) {
           setFeedStatus('error');
-          setFeedMessage('Firestore 커뮤니티 발견을 불러오지 못했습니다.');
+          setFeedMessage('Atlas API 커뮤니티 발견을 불러오지 못했습니다.');
           setDiscoveries([]);
         }
       }
@@ -171,11 +171,11 @@ export function CommunityScreen() {
 
           {!hasLiveFeed ? (
             <View style={styles.noticeCard}>
-              <Text style={styles.noticeTitle}>{feedStatus === 'error' ? 'Firestore 연결 실패' : '미리보기 피드'}</Text>
+              <Text style={styles.noticeTitle}>{feedStatus === 'error' ? 'Atlas API 연결 실패' : '미리보기 피드'}</Text>
               <Text style={styles.noticeBody}>
                 {feedStatus === 'error'
-                  ? feedMessage ?? 'Firebase 프로젝트와 Firestore 규칙을 확인해 주세요.'
-                  : '아직 주변 5km 안에 공개된 Firestore 발견이 없어서 예시 카드로 커뮤니티 흐름을 보여줍니다.'}
+                  ? feedMessage ?? 'Atlas API 서버와 로그인 토큰을 확인해 주세요.'
+                  : '아직 주변 5km 안에 공개된 발견이 없어서 예시 카드로 커뮤니티 흐름을 보여줍니다.'}
               </Text>
             </View>
           ) : null}
@@ -248,19 +248,19 @@ function DiscoveryCard({ item }: { item: DiscoveryCard }) {
   );
 }
 
-function toDiscoveryCard(item: FirebaseCommunityDiscovery): DiscoveryCard {
+function toDiscoveryCard(item: MapDiscoveryResponse): DiscoveryCard {
   return {
-    id: item.id,
+    id: item.discoveryId,
     commonNameKo: item.displayName,
-    scientificName: item.scientificName ?? item.category,
-    confidence: 0,
-    observedAtLabel: formatRelativeDate(item.createdAt),
+    scientificName: item.scientificName ?? speciesGroupLabel(item.displayGroup),
+    confidence: item.confidence,
+    observedAtLabel: formatRelativeDate(item.capturedAt),
     distanceMeters: Math.round(item.distanceKm * 1000),
     contributorName: item.contributorName,
-    bloomState: item.category === 'PLANT' ? 'GROWING' : item.category === 'ANIMAL' ? 'BLOOMED' : 'SEEDED',
-    cellLabel: item.cellKey ? `${item.cellKey} 셀` : '주변 서식지 셀',
+    bloomState: item.displayGroup === 'PLANT' ? 'GROWING' : item.displayGroup === 'OTHER' ? 'SEEDED' : 'BLOOMED',
+    cellLabel: item.regionName,
     imageUrl: item.imageUrl,
-    evidence: `${item.cellKey ? `${item.cellKey} 셀` : '주변 서식지 셀'}에서 ${item.displayName}을 발견했어요! ${emojiForCategory(item.category, item.displayName)}`,
+    evidence: `${item.regionName}에서 ${item.displayName}을 발견했어요! ${emojiForGroup(item.displayGroup, item.displayName)}`,
     likeCount: item.likeCount,
     commentCount: item.commentCount,
   };
@@ -288,15 +288,29 @@ function formatRelativeDate(value: string | null) {
 }
 
 function emojiForCard(item: DiscoveryCard) {
-  return emojiForCategory(item.bloomState === 'GROWING' ? 'PLANT' : item.bloomState === 'BLOOMED' ? 'ANIMAL' : 'OTHER', item.commonNameKo);
+  return emojiForGroup(item.bloomState === 'GROWING' ? 'PLANT' : item.bloomState === 'BLOOMED' ? 'ANIMAL' : 'OTHER', item.commonNameKo);
 }
 
-function emojiForCategory(category: string, name: string) {
+function emojiForGroup(group: SpeciesDisplayGroup | 'ANIMAL', name: string) {
   if (/나비|butterfly/.test(name)) return '🦋';
-  if (/꽃|개망초|풀|plant|flower/.test(name) || category === 'PLANT') return '🌼';
+  if (/꽃|개망초|풀|plant|flower/.test(name) || group === 'PLANT') return '🌼';
   if (/새|직박구리|bird/.test(name)) return '🐦';
-  if (category === 'ANIMAL') return '🐾';
+  if (group === 'INSECT') return '🐞';
+  if (group === 'ANIMAL' || group === 'BIRD' || group === 'FISH' || group === 'AMPHIBIAN' || group === 'REPTILE' || group === 'MAMMAL') return '🐾';
   return '✨';
+}
+
+function speciesGroupLabel(group: SpeciesDisplayGroup) {
+  if (group === 'PLANT') return '식물';
+  if (group === 'INSECT') return '곤충';
+  if (group === 'BIRD') return '조류';
+  if (group === 'FISH') return '어류';
+  if (group === 'AMPHIBIAN') return '양서류';
+  if (group === 'REPTILE') return '파충류';
+  if (group === 'MAMMAL') return '포유류';
+  if (group === 'FUNGI') return '균류';
+  if (group === 'ANIMAL') return '동물';
+  return '기타';
 }
 
 function avatarInitial(name: string | null) {

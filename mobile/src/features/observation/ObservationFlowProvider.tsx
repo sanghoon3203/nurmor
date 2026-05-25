@@ -2,8 +2,18 @@ import * as Location from 'expo-location';
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { assertConfigured, getPublicEnv } from '../../config/env';
-import { AnalysisResponse, CodexEntryResponse, HabitatCell, MediaAssetResponse, ObservationResponse } from '../../services/api';
-import { createFirebaseObservationDraft, plantFirebaseObservation } from '../../services/firebaseAtlasDb';
+import {
+  AnalysisResponse,
+  analyzeObservation,
+  CodexEntryResponse,
+  createObservation,
+  getCodexEntries,
+  HabitatCell,
+  MediaAssetResponse,
+  ObservationResponse,
+  plantObservation,
+  registerMediaAsset,
+} from '../../services/api';
 import {
   AtlasMediaType,
   arrayBufferFromBlob,
@@ -152,30 +162,22 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
           storageKey: uploadResult.storageKey,
         };
 
-        const mediaAsset: MediaAssetResponse = {
-          id: `firebase-${checksum}`,
-          type: mediaType,
-          storageKey: uploadResult.storageKey,
-          mimeType,
-        };
-
         setState((current) => ({
           ...current,
           status: 'creating-observation',
-          message: '정확 좌표를 private Firestore 기록으로 저장하는 중',
+          message: 'Atlas API에 원본 기록 metadata를 등록하는 중',
           media: mediaSummary,
-          mediaAsset,
         }));
 
-        const draft = await createFirebaseObservationDraft(auth.session.idToken, {
-          userId: auth.session.localId,
-          media: {
-            mediaType,
-            storageKey: uploadResult.storageKey,
-            mimeType,
-            sizeBytes,
-            checksum,
-          },
+        const mediaAsset = await registerMediaAsset(auth.session.idToken, {
+          type: mediaType,
+          storageKey: uploadResult.storageKey,
+          mimeType,
+          sizeBytes,
+          checksum,
+        });
+        const observation = await createObservation(auth.session.idToken, {
+          mediaAssetIds: [mediaAsset.id],
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           locationAccuracyMeters: location.coords.accuracy ?? 0,
@@ -185,15 +187,18 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'analyzing',
-          message: 'Firebase-only MVP 후보를 준비하는 중',
-          observation: draft.observation,
+          message: 'Atlas API에서 생물 후보를 분석하는 중',
+          mediaAsset,
+          observation,
         }));
+
+        const analysis = await analyzeObservation(auth.session.idToken, observation.id);
 
         setState((current) => ({
           ...current,
           status: 'ready-for-review',
-          message: '임시 후보를 확인하고 지도에 심어주세요.',
-          analysis: draft.analysis,
+          message: '분석 후보를 확인하고 지도에 심어주세요.',
+          analysis,
         }));
       } catch (error) {
         setState((current) => ({
@@ -224,23 +229,22 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'planting',
-          message: '선택한 후보를 Firestore 셀 도감에 심는 중',
+          message: '선택한 후보를 Atlas 셀 도감에 심는 중',
           errorMessage: null,
         }));
 
-        const planted = await plantFirebaseObservation(auth.session.idToken, {
-          userId: auth.session.localId,
-          observation: state.observation,
-          candidate,
+        const plantedCell = await plantObservation(auth.session.idToken, state.observation.id, {
+          speciesCandidateId,
           visibility,
         });
+        const codexEntries = await getCodexEntries(auth.session.idToken, plantedCell.id);
 
         setState((current) => ({
           ...current,
           status: 'planted',
-          message: 'Firestore 셀 도감에 기록이 반영되었습니다.',
-          plantedCell: planted.plantedCell,
-          codexEntries: planted.codexEntries,
+          message: 'Atlas 셀 도감에 기록이 반영되었습니다.',
+          plantedCell,
+          codexEntries,
         }));
       } catch (error) {
         setState((current) => ({
@@ -251,7 +255,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         }));
       }
     },
-    [auth.session?.idToken, auth.session?.localId, state.analysis?.candidates, state.observation]
+    [auth.session?.idToken, state.analysis?.candidates, state.observation]
   );
 
   const value = useMemo<ObservationFlowContextValue>(

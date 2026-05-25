@@ -18,6 +18,7 @@
     "src/features/atlas/revealViewFocus.test.ts",
     "src/features/codex/codexDetailViewModel.ts",
     "src/features/codex/codexDetailViewModel.test.ts",
+    "src/features/codex/codexScreenBehavior.test.ts",
     "src/features/codex/codexViewModel.ts",
     "src/features/codex/codexViewModel.test.ts",
     "src/features/capture/recordFlowViewModel.ts",

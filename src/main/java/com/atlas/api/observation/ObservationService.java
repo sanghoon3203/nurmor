@@ -4,6 +4,7 @@ import com.atlas.api.analysis.*;
 import com.atlas.api.codex.CodexCategory;
 import com.atlas.api.codex.CodexEntry;
 import com.atlas.api.codex.CodexEntryRepository;
+import com.atlas.api.codex.SpeciesClassifier;
 import com.atlas.api.common.ApiException;
 import com.atlas.api.habitat.*;
 import com.atlas.api.media.MediaAsset;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -170,9 +170,6 @@ public class ObservationService {
     }
 
     private static String speciesKey(SpeciesCandidate candidate) {
-        String source = candidate.getScientificName() == null || candidate.getScientificName().isBlank()
-            ? candidate.getCommonNameKo()
-            : candidate.getScientificName();
-        return source.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9가-힣]+", "-");
+        return SpeciesClassifier.speciesKey(candidate.getCommonNameKo(), candidate.getScientificName());
     }
 }

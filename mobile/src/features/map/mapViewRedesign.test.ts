@@ -12,11 +12,13 @@ function readSource(path: string) {
 test('map view uses discovery emoji markers and habitat cell polygons', () => {
   const source = readSource('src/features/map/MapHomeScreen.tsx');
 
-  assert.equal(source.includes('listCommunityDiscoveries'), true);
+  assert.equal(source.includes('getMapDiscoveries'), true);
+  assert.equal(source.includes('getNearbyHabitatCells'), true);
+  assert.equal(source.includes('getHabitatCellReport'), true);
   assert.equal(source.includes('DiscoveryMarker'), true);
   assert.equal(source.includes('emojiForDiscovery'), true);
   assert.equal(source.includes('Polygon'), true);
-  assert.equal(source.includes('demoHabitatCells'), true);
+  assert.equal(source.includes('toMapHabitatCells'), true);
 });
 
 test('map view opens an ecology report as a vertical toggle panel', () => {
