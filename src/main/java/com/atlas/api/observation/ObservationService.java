@@ -9,6 +9,8 @@ import com.atlas.api.common.ApiException;
 import com.atlas.api.habitat.*;
 import com.atlas.api.media.MediaAsset;
 import com.atlas.api.media.MediaAssetRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ import java.util.UUID;
 
 @Service
 public class ObservationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ObservationService.class);
 
     private final CellKeyService cellKeyService;
     private final HabitatCellRepository habitatCellRepository;
@@ -87,12 +91,24 @@ public class ObservationService {
 
     @Transactional
     public AnalysisResponse analyze(UUID observationId) {
+        long startedAt = System.currentTimeMillis();
+        log.info("analysis request started observationId={}", observationId);
         ObservationRecord record = findObservation(observationId);
         record.markAnalyzing();
         AnalysisJob job = analysisJobRepository.save(new AnalysisJob(record.getId(), geminiModel, "habitat-bloom-v1"));
         job.running();
         try {
             List<MediaAsset> mediaAssets = mediaAssetRepository.findAllById(record.getMediaAssetIds());
+            if (mediaAssets.size() != record.getMediaAssetIds().size()) {
+                log.warn(
+                    "analysis media lookup mismatch observationId={} expected={} actual={}",
+                    observationId,
+                    record.getMediaAssetIds().size(),
+                    mediaAssets.size()
+                );
+                throw new ApiException(HttpStatus.BAD_REQUEST, "observation media assets are missing");
+            }
+            log.info("analysis gemini call starting observationId={} jobId={} mediaCount={}", observationId, job.getId(), mediaAssets.size());
             List<SpeciesCandidate> candidates = geminiAnalysisClient.analyze(record, mediaAssets).stream()
                 .map(candidate -> new SpeciesCandidate(
                     job.getId(),
@@ -102,13 +118,38 @@ public class ObservationService {
                     candidate.evidence()
                 ))
                 .toList();
+            log.info("analysis gemini call completed observationId={} jobId={} candidateCount={}", observationId, job.getId(), candidates.size());
             speciesCandidateRepository.saveAll(candidates);
             record.markNeedsReview();
             job.succeeded();
+            log.info(
+                "analysis request succeeded observationId={} jobId={} elapsedMs={}",
+                observationId,
+                job.getId(),
+                System.currentTimeMillis() - startedAt
+            );
             return toAnalysisResponse(job, candidates);
+        } catch (ApiException exception) {
+            record.markFailed();
+            job.failed(exception.getMessage());
+            log.warn(
+                "analysis request rejected observationId={} jobId={} elapsedMs={} message={}",
+                observationId,
+                job.getId(),
+                System.currentTimeMillis() - startedAt,
+                exception.getMessage()
+            );
+            throw exception;
         } catch (RuntimeException exception) {
             record.markFailed();
             job.failed(exception.getMessage());
+            log.error(
+                "analysis request failed observationId={} jobId={} elapsedMs={}",
+                observationId,
+                job.getId(),
+                System.currentTimeMillis() - startedAt,
+                exception
+            );
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Gemini analysis failed");
         }
     }

@@ -109,7 +109,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
     async (asset: PickedObservationAsset) => {
       try {
         if (!auth.session?.idToken) {
-          throw new Error('Firebase 로그인이 완료된 뒤 다시 시도해 주세요.');
+          throw new Error('Firebase 로그인이 필요합니다. 다시 로그인해 주세요.');
         }
 
         const env = getPublicEnv();
@@ -127,8 +127,9 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
 
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== 'granted') {
-          throw new Error('위치 권한이 있어야 관찰 기록에 위치 이름을 저장할 수 있습니다.');
+          throw new Error('위치 권한이 없어 관찰 기록의 위치 이름을 저장할 수 없습니다.');
         }
+
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
@@ -191,7 +192,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'analyzing',
-          message: 'Atlas API에서 생물 후보를 분석하는 중',
+          message: 'Gemini가 생물 후보를 분석하는 중',
           mediaAsset,
           observation,
           locationName: observation.locationName ?? locationName,
@@ -202,7 +203,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'ready-for-review',
-          message: '분석 후보를 확인하고 위치 이름으로 기록해 주세요.',
+          message: '분석 후보를 확인하고 지도에 심어주세요.',
           analysis,
         }));
       } catch (error) {
@@ -221,25 +222,26 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
     async (speciesCandidateId: string, visibility: 'PRIVATE' | 'PUBLIC') => {
       try {
         if (!auth.session?.idToken) {
-          throw new Error('Firebase 로그인이 완료된 뒤 다시 시도해 주세요.');
+          throw new Error('Firebase 로그인이 필요합니다. 다시 로그인해 주세요.');
         }
         if (!state.observation?.id) {
-          throw new Error('심을 ObservationRecord가 없습니다.');
+          throw new Error('저장할 관찰 기록이 없습니다.');
         }
+
         const candidate = state.analysis?.candidates.find((item) => item.id === speciesCandidateId);
         if (!candidate) {
-          throw new Error('선택한 생물 후보를 찾지 못했습니다.');
+          throw new Error('선택한 생물 후보를 찾을 수 없습니다.');
         }
 
         setState((current) => ({
           ...current,
           status: 'planting',
-          message: '선택한 후보를 위치 이름으로 저장하는 중',
+          message: '선택한 후보를 지도와 도감에 저장하는 중',
           errorMessage: null,
         }));
 
         const plantedCell = await plantObservation(auth.session.idToken, state.observation.id, {
-          speciesCandidateId,
+          speciesCandidateId: candidate.id,
           visibility,
         });
         const codexEntries = await getCodexEntries(auth.session.idToken, plantedCell.id);
@@ -247,7 +249,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'planted',
-          message: `${plantedCell.regionName ?? current.locationName ?? '현재 위치'} 기록이 반영되었습니다.`,
+          message: `${plantedCell.regionName ?? current.locationName ?? '현재 위치'} 기록을 반영했습니다.`,
           plantedCell,
           codexEntries,
         }));
@@ -304,13 +306,7 @@ function defaultNameForMime(mimeType: string): string {
 async function locationNameFor(latitude: number, longitude: number): Promise<string> {
   try {
     const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-    const parts = [
-      place?.region,
-      place?.city,
-      place?.district,
-      place?.street,
-      place?.name,
-    ]
+    const parts = [place?.region, place?.city, place?.district, place?.street, place?.name]
       .map((part) => part?.trim())
       .filter(Boolean);
     return [...new Set(parts)].join(' ') || '현재 위치';

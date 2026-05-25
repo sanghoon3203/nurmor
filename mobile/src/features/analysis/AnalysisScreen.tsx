@@ -31,6 +31,9 @@ export function AnalysisScreen() {
       }
     : null;
   const mediaUri = flow.state.media?.uri ?? null;
+  const overlayMessage = displayCandidate
+    ? flow.state.message
+    : '분석 후보를 확인하고 지도에 심어주세요.';
   const locationName = flow.state.plantedCell?.regionName ?? flow.state.observation?.locationName ?? flow.state.locationName ?? '현재 위치';
 
   const plant = async () => {
@@ -71,7 +74,7 @@ export function AnalysisScreen() {
               )}
               <View style={styles.photoOverlay}>
                 <Text style={styles.photoOverlayTitle}>{displayCandidate ? '사진 분석 완료' : '사진을 판정하는 중'}</Text>
-                <Text style={styles.photoOverlayBody}>{flow.state.message}</Text>
+                <Text style={styles.photoOverlayBody}>{overlayMessage}</Text>
               </View>
             </View>
           </RevealView>
