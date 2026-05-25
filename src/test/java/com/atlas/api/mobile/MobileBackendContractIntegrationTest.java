@@ -129,6 +129,9 @@ class MobileBackendContractIntegrationTest {
         assertThat(codex.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(codex.getBody()).containsKeys("items", "page", "size", "totalItems");
         assertThat((List<?>) codex.getBody().get("items")).isNotEmpty();
+        Map<?, ?> codexItem = (Map<?, ?>) ((List<?>) codex.getBody().get("items")).getFirst();
+        assertThat(codexItem.get("displayGroup")).isEqualTo("INSECT");
+        assertThat(codexItem.get("regionName")).isEqualTo("서울특별시 중구 명동");
 
         ResponseEntity<List> community = restTemplate.exchange(
             "/api/community/discoveries?lat=37.5665&lng=126.9780&radiusKm=5",
@@ -207,6 +210,7 @@ class MobileBackendContractIntegrationTest {
                 37.5665,
                 126.9780,
                 8.0,
+                "서울특별시 중구 명동",
                 Instant.parse("2026-05-21T02:30:00Z")
             ), headers(token)),
             Map.class
@@ -214,6 +218,7 @@ class MobileBackendContractIntegrationTest {
         assertThat(observation.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         UUID observationId = UUID.fromString((String) observation.getBody().get("id"));
         UUID habitatCellId = UUID.fromString((String) observation.getBody().get("habitatCellId"));
+        assertThat(observation.getBody().get("locationName")).isEqualTo("서울특별시 중구 명동");
 
         ResponseEntity<Map> analysis = restTemplate.exchange(
             "/api/observations/%s/analyze".formatted(observationId),
@@ -226,13 +231,15 @@ class MobileBackendContractIntegrationTest {
         Map<?, ?> firstCandidate = (Map<?, ?>) candidates.getFirst();
         assertThat(firstCandidate.get("commonNameKo")).isEqualTo("노랑나비");
         assertThat(firstCandidate.get("scientificName")).isEqualTo("Eurema hecabe");
+        assertThat(firstCandidate.get("category")).isEqualTo("ANIMAL");
+        assertThat(firstCandidate.get("displayGroup")).isEqualTo("INSECT");
         assertThat((String) firstCandidate.get("evidence")).contains("날개색", "체형");
         UUID candidateId = UUID.fromString((String) firstCandidate.get("id"));
 
         ResponseEntity<Map> plant = restTemplate.exchange(
             "/api/observations/%s/plant".formatted(observationId),
             HttpMethod.POST,
-            new HttpEntity<>(new PlantObservationRequest(candidateId, Visibility.CELL), headers(token)),
+            new HttpEntity<>(new PlantObservationRequest(candidateId, Visibility.PUBLIC), headers(token)),
             Map.class
         );
         assertThat(plant.getStatusCode()).isEqualTo(HttpStatus.OK);

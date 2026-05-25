@@ -41,6 +41,9 @@ public class ObservationRecord {
     @Column(nullable = false)
     private double locationAccuracyMeters;
 
+    @Column(nullable = false, length = 120)
+    private String locationName;
+
     @Column(nullable = false, length = 500)
     private String mediaAssetIdsCsv;
 
@@ -65,7 +68,8 @@ public class ObservationRecord {
     }
 
     public ObservationRecord(UUID userId, UUID habitatCellId, double exactLat, double exactLng, double publicLat,
-                             double publicLng, double locationAccuracyMeters, String mediaAssetIdsCsv, Instant capturedAt) {
+                             double publicLng, double locationAccuracyMeters, String locationName,
+                             String mediaAssetIdsCsv, Instant capturedAt) {
         this.id = UUID.randomUUID();
         this.userId = userId;
         this.habitatCellId = habitatCellId;
@@ -74,6 +78,7 @@ public class ObservationRecord {
         this.publicLat = publicLat;
         this.publicLng = publicLng;
         this.locationAccuracyMeters = locationAccuracyMeters;
+        this.locationName = locationName;
         this.mediaAssetIdsCsv = mediaAssetIdsCsv;
         this.status = ObservationStatus.CAPTURED;
         this.visibility = Visibility.PRIVATE;
@@ -128,6 +133,10 @@ public class ObservationRecord {
 
     public double getPublicLng() {
         return publicLng;
+    }
+
+    public String getLocationName() {
+        return locationName;
     }
 
     public ObservationStatus getStatus() {

@@ -8,6 +8,7 @@ public record ObservationResponse(
     UUID habitatCellId,
     String status,
     String visibility,
+    String locationName,
     double publicLat,
     double publicLng,
     Instant capturedAt
@@ -18,6 +19,7 @@ public record ObservationResponse(
             record.getHabitatCellId(),
             record.getStatus().name(),
             record.getVisibility().name(),
+            record.getLocationName(),
             record.getPublicLat(),
             record.getPublicLng(),
             record.getCapturedAt()

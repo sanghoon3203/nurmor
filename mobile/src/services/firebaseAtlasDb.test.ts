@@ -238,25 +238,48 @@ test('plantFirebaseObservation writes codex, community, cell aggregate, and prof
       status: 'READY_FOR_REVIEW',
       publicLat: 37.56625,
       publicLng: 126.97875,
+      locationName: '서울특별시 중구 명동',
     },
     candidate: {
       id: 'candidate-1',
       commonNameKo: '노랑나비',
       scientificName: 'Eurema hecabe',
+      category: 'ANIMAL',
+      displayGroup: 'INSECT',
       confidence: 0.87,
       evidence: '날개 색과 무늬 패턴 일치',
     },
-    visibility: 'CELL',
+    visibility: 'PUBLIC',
   });
 
   assert.equal(result.plantedCell.id, 'h:15026:50791');
   assert.equal(result.plantedCell.observationCount, 2);
   assert.equal(result.codexEntries[0].displayName, '노랑나비');
+  assert.equal(result.codexEntries[0].displayGroup, 'INSECT');
+  assert.equal(result.codexEntries[0].regionName, '서울특별시 중구 명동');
   assert.ok(requests.some((request) => request.url.includes('/documents/observations/obs-1?updateMask.fieldPaths=status')));
   assert.ok(requests.some((request) => request.url.includes('/documents/codexEntries/codex_')));
   assert.ok(requests.some((request) => request.url.includes('/documents/communityDiscoveries/obs-1')));
   assert.ok(requests.some((request) => request.url.includes('/documents/habitatCells/h%3A15026%3A50791')));
   assert.ok(requests.some((request) => request.url.includes('/documents/users/user-1')));
+  assert.ok(
+    requests.some((request) => {
+      if (!request.url.includes('/documents/codexEntries/codex_')) {
+        return false;
+      }
+      const fields = JSON.parse(String(request.init?.body ?? '{}')).fields;
+      return firestoreFieldsToData(fields).displayGroup === 'INSECT';
+    })
+  );
+  assert.ok(
+    requests.some((request) => {
+      if (!request.url.includes('/documents/communityDiscoveries/obs-1')) {
+        return false;
+      }
+      const fields = JSON.parse(String(request.init?.body ?? '{}')).fields;
+      return firestoreFieldsToData(fields).displayGroup === 'INSECT';
+    })
+  );
 });
 
 function firestoreDocument(path: string, data: Record<string, unknown>) {

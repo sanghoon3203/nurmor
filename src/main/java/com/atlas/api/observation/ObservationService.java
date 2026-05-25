@@ -54,7 +54,7 @@ public class ObservationService {
     }
 
     @Transactional
-    public ObservationRecord create(UUID userId, CreateObservationRequest request) {
+    public ObservationResponse create(UUID userId, CreateObservationRequest request) {
         CellResolution resolution = cellKeyService.resolve(request.latitude(), request.longitude());
         HabitatCell cell = habitatCellRepository.findByCellKey(resolution.cellKey())
             .orElseGet(() -> habitatCellRepository.save(new HabitatCell(
@@ -62,6 +62,9 @@ public class ObservationService {
                 resolution.centerLat(),
                 resolution.centerLng()
             )));
+        String locationName = locationName(request.locationName());
+        cell.applyDisplayName(locationName);
+        habitatCellRepository.save(cell);
         String mediaCsv = request.mediaAssetIds().stream()
             .map(UUID::toString)
             .reduce((left, right) -> left + "," + right)
@@ -74,10 +77,12 @@ public class ObservationService {
             cell.getCenterLat(),
             cell.getCenterLng(),
             request.locationAccuracyMeters(),
+            locationName,
             mediaCsv,
             request.capturedAt()
         );
-        return observationRecordRepository.save(record);
+        ObservationRecord saved = observationRecordRepository.save(record);
+        return ObservationResponse.from(saved);
     }
 
     @Transactional
@@ -171,5 +176,12 @@ public class ObservationService {
 
     private static String speciesKey(SpeciesCandidate candidate) {
         return SpeciesClassifier.speciesKey(candidate.getCommonNameKo(), candidate.getScientificName());
+    }
+
+    private static String locationName(String value) {
+        if (value == null || value.isBlank()) {
+            return "현재 위치";
+        }
+        return value.trim();
     }
 }

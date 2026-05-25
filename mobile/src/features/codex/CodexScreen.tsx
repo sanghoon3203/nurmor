@@ -1,8 +1,12 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import AnimalIcon from '../../../../animal_icon.svg';
+import BirdIcon from '../../../../bird_icon.svg';
+import FishIcon from '../../../../fish_icon.svg';
+import InsectIcon from '../../../../insect_icon.svg';
 import { GradientScreen, RevealView } from '../atlas/glass';
 import { codexEntries } from '../atlas/mockData';
 import { useAuth } from '../auth/AuthProvider';
@@ -21,6 +25,8 @@ import { SpeciesCodexCard } from './SpeciesCodexCard';
 
 type RemoteStatus = 'idle' | 'loading' | 'ready' | 'error';
 type SortMode = 'RECENT' | 'OLDEST';
+
+const plantIcon = require('../../../../plant.png');
 
 const sampleEntries: Array<{
   id: string;
@@ -88,7 +94,7 @@ export function CodexScreen() {
 
   const cards = useMemo(() => {
     if (flow.state.codexEntries.length > 0) {
-      return flow.state.codexEntries.map((entry) => toSpeciesCard(entry, { regionName: '현재 셀' }));
+      return flow.state.codexEntries.map((entry) => toSpeciesCard(entry, { regionName: flow.state.plantedCell?.regionName ?? flow.state.locationName ?? '현재 위치' }));
     }
     if (remoteEntries.length > 0) {
       return remoteEntries.map(firebaseCodexToSpeciesCard);
@@ -116,7 +122,7 @@ export function CodexScreen() {
           </RevealView>
 
           <RevealView delay={70}>
-            <View style={styles.filterBar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterBar}>
               {codexFilters.map((item) => {
                 const selected = filter === item.value;
                 return (
@@ -127,13 +133,15 @@ export function CodexScreen() {
                     onPress={() => setFilter(item.value)}
                     style={({ pressed }) => [styles.filterChip, selected ? styles.filterChipSelected : null, pressed ? styles.filterChipPressed : null]}
                   >
+                    <CodexFilterIcon family={item.value} selected={selected} />
                     <Text style={[styles.filterLabel, selected ? styles.filterLabelSelected : null]} numberOfLines={1}>
-                      {item.label} {counts[item.value]}
+                      {item.label}
                     </Text>
+                    <Text style={[styles.filterCount, selected ? styles.filterLabelSelected : null]}>{counts[item.value]}</Text>
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </RevealView>
 
           <RevealView delay={110}>
@@ -234,6 +242,16 @@ function LatestSortMenu({ sortMode, onChange }: { sortMode: SortMode; onChange: 
   );
 }
 
+function CodexFilterIcon({ family, selected }: { family: CodexFamily; selected: boolean }) {
+  const iconStyle = [styles.filterIcon, selected ? styles.filterIconSelected : null];
+  if (family === 'PLANT') {
+    return <Image source={plantIcon} style={iconStyle} resizeMode="contain" />;
+  }
+
+  const Icon = family === 'BIRD' ? BirdIcon : family === 'FISH' ? FishIcon : family === 'INSECT' ? InsectIcon : AnimalIcon;
+  return <Icon width={22} height={22} opacity={selected ? 1 : 0.82} />;
+}
+
 function filterSpeciesCards(cards: SpeciesCard[], filter: CodexFamily) {
   if (filter === 'ALL') {
     return cards;
@@ -261,7 +279,7 @@ function countByFamily(cards: SpeciesCard[]) {
       ...next,
       [item.value]: item.value === 'ALL' ? cards.length : cards.filter((card) => familyFromDisplayGroup(card.displayGroup) === item.value).length,
     }),
-    { ALL: 0, PLANT: 0, ANIMAL: 0, FISH: 0, INSECT: 0, OTHER: 0 }
+    { ALL: 0, PLANT: 0, ANIMAL: 0, BIRD: 0, FISH: 0, INSECT: 0, OTHER: 0 }
   );
 }
 
@@ -278,6 +296,7 @@ function formatSpeciesDate(value: string | null) {
 
 function familyFromDisplayGroup(group: SpeciesDisplayGroup): Exclude<CodexFamily, 'ALL'> {
   if (group === 'PLANT') return 'PLANT';
+  if (group === 'BIRD') return 'BIRD';
   if (group === 'FISH') return 'FISH';
   if (group === 'INSECT') return 'INSECT';
   if (group === 'OTHER' || group === 'FUNGI') return 'OTHER';
@@ -319,22 +338,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   filterBar: {
-    minHeight: 42,
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 8,
     paddingBottom: 18,
   },
   filterChip: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 36,
+    width: 58,
+    minHeight: 68,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
+    gap: 3,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(22, 63, 45, 0.06)',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
     backgroundColor: '#F0F0F0',
     shadowColor: colors.shadow,
     shadowOpacity: 0.02,
@@ -351,13 +371,25 @@ const styles = StyleSheet.create({
   filterChipPressed: {
     transform: [{ translateY: 1 }, { scale: 0.98 }],
   },
+  filterIcon: {
+    width: 22,
+    height: 22,
+  },
+  filterIconSelected: {
+    opacity: 1,
+  },
   filterLabel: {
     ...fontWeights.bold,
     color: colors.ink,
-    fontSize: 11,
+    fontSize: 10,
   },
   filterLabelSelected: {
     color: colors.white,
+  },
+  filterCount: {
+    ...fontWeights.bold,
+    color: colors.muted,
+    fontSize: 11,
   },
   featuredCard: {
     alignSelf: 'center',

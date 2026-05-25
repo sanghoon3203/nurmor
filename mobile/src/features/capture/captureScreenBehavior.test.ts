@@ -40,3 +40,23 @@ test('app config declares native camera and microphone permission plugins for Ex
   assert.equal(source.includes('expo-audio'), true);
   assert.equal(source.includes('microphonePermission'), true);
 });
+
+test('analysis screen uses the sparkles gif while judging photos and removes mock butterfly fallback copy', () => {
+  const source = readSource('src/features/analysis/AnalysisScreen.tsx');
+
+  assert.equal(source.includes("require('../../../assets/Sparkles Loop Loader ai.gif')"), true);
+  assert.equal(source.includes('discoveryCandidate'), false);
+  assert.equal(source.includes('노랑나비'), false);
+  assert.equal(source.includes('사진을 판정하는 중'), true);
+  assert.equal(source.includes('styles.loaderGif'), true);
+});
+
+test('analysis screen removes cell sharing UI and saves records by location name', () => {
+  const source = readSource('src/features/analysis/AnalysisScreen.tsx');
+
+  assert.equal(source.includes('셀 도감'), false);
+  assert.equal(source.includes('셀 또는 커뮤니티'), false);
+  assert.equal(source.includes('/cell'), false);
+  assert.equal(source.includes('locationName'), true);
+  assert.equal(source.includes('내 도감에 저장하기'), true);
+});

@@ -1,5 +1,7 @@
 package com.atlas.api.codex;
 
+import com.atlas.api.habitat.HabitatCellRepository;
+import com.atlas.api.habitat.HabitatCellView;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/codex")
 public class GlobalCodexController {
@@ -16,9 +20,11 @@ public class GlobalCodexController {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final CodexEntryRepository repository;
+    private final HabitatCellRepository habitatCellRepository;
 
-    public GlobalCodexController(CodexEntryRepository repository) {
+    public GlobalCodexController(CodexEntryRepository repository, HabitatCellRepository habitatCellRepository) {
         this.repository = repository;
+        this.habitatCellRepository = habitatCellRepository;
     }
 
     @GetMapping
@@ -34,10 +40,16 @@ public class GlobalCodexController {
             ? repository.findAllByOrderByLastObservedAtDesc(pageable)
             : repository.findByCategoryOrderByLastObservedAtDesc(category, pageable);
         return new CodexListResponse(
-            entries.stream().map(CodexEntryResponse::from).toList(),
+            entries.stream().map(entry -> CodexEntryResponse.from(entry, regionNameFor(entry.getHabitatCellId()))).toList(),
             safePage,
             safeSize,
             entries.getTotalElements()
         );
+    }
+
+    private String regionNameFor(UUID habitatCellId) {
+        return habitatCellRepository.findById(habitatCellId)
+            .map(HabitatCellView::regionName)
+            .orElse("현재 위치");
     }
 }

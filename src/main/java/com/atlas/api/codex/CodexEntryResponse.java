@@ -11,6 +11,7 @@ public record CodexEntryResponse(
     String scientificName,
     CodexCategory category,
     DisplayGroup displayGroup,
+    String regionName,
     String representativeMediaKey,
     long discoveryNumber,
     int observationCount,
@@ -18,7 +19,7 @@ public record CodexEntryResponse(
     Instant firstObservedAt,
     Instant lastObservedAt
 ) {
-    static CodexEntryResponse from(CodexEntry entry) {
+    static CodexEntryResponse from(CodexEntry entry, String regionName) {
         return new CodexEntryResponse(
             entry.getId(),
             entry.getHabitatCellId(),
@@ -27,6 +28,7 @@ public record CodexEntryResponse(
             entry.getScientificName(),
             entry.getCategory(),
             SpeciesClassifier.displayGroup(entry.getDisplayName(), entry.getScientificName(), entry.getCategory()),
+            regionName,
             entry.getRepresentativeMediaKey(),
             entry.getDiscoveryNumber(),
             entry.getObservationCount(),

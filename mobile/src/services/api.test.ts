@@ -76,6 +76,7 @@ test('createObservation posts media ids and exact private coordinates', async ()
     latitude: 37.5665,
     longitude: 126.978,
     locationAccuracyMeters: 12,
+    locationName: '서울특별시 중구 명동',
     capturedAt: '2026-05-21T02:00:00.000Z',
   });
 
@@ -86,6 +87,7 @@ test('createObservation posts media ids and exact private coordinates', async ()
     latitude: 37.5665,
     longitude: 126.978,
     locationAccuracyMeters: 12,
+    locationName: '서울특별시 중구 명동',
     capturedAt: '2026-05-21T02:00:00.000Z',
   });
 });
@@ -105,7 +107,7 @@ test('analysis, plant, and codex clients call the backend contract paths', async
 
   await analyzeObservation('token-123', 'obs-1');
   await getAnalysisJob('token-123', 'job-1');
-  await plantObservation('token-123', 'obs-1', { speciesCandidateId: 'candidate-1', visibility: 'CELL' });
+  await plantObservation('token-123', 'obs-1', { speciesCandidateId: 'candidate-1', visibility: 'PRIVATE' });
   await getCodexEntries('token-123', 'cell-1');
 
   assert.deepEqual(paths, [

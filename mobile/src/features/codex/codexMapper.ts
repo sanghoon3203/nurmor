@@ -22,7 +22,7 @@ export function toSpeciesCard(entry: CodexEntryResponse, options: SpeciesCardOpt
     displayGroup,
     description,
     imageUrl: mediaUrl(entry.representativeMediaKey, imageBaseUrl),
-    regionName: options.regionName ?? '미확인 지역',
+    regionName: options.regionName ?? entry.regionName ?? '미확인 지역',
     observationCount: entry.observationCount,
     firstObservedAt: entry.firstObservedAt ?? null,
     lastObservedAt: entry.lastObservedAt ?? null,
@@ -38,12 +38,13 @@ export function firebaseCodexToSpeciesCard(entry: FirebaseCodexEntry): SpeciesCa
     scientificName: entry.scientificName,
     displayGroup: displayGroupFromEntry({
       category: entry.category,
+      displayGroup: entry.displayGroup,
       displayName: entry.displayName,
       scientificName: entry.scientificName,
     }),
     description: getDefaultDescription(undefined, entry.displayName),
     imageUrl: entry.imageUrl,
-    regionName: '서식지 셀',
+    regionName: entry.regionName,
     observationCount: entry.observationCount,
     firstObservedAt: entry.createdAt,
     lastObservedAt: entry.createdAt,
@@ -90,6 +91,7 @@ export function displayGroupFromEntry(entry: {
   }
   const family = inferCodexFamily({
     category: entry.category,
+    displayGroup: entry.displayGroup,
     title: entry.displayName,
     scientificName: entry.scientificName,
   });

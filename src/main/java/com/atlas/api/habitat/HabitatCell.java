@@ -94,6 +94,13 @@ public class HabitatCell {
         this.contributorCount = contributorCount;
     }
 
+    public void applyDisplayName(String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            return;
+        }
+        this.displayName = displayName.trim();
+    }
+
     public UUID getId() {
         return id;
     }

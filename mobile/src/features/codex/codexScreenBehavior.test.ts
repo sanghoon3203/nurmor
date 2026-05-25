@@ -45,3 +45,15 @@ test('codex screen uses compact Bookk typography header and one-line filter chip
   assert.equal(source.includes('LatestSortMenu'), true);
   assert.equal(source.includes('최신순'), false);
 });
+
+test('codex filter chips render the committed biological icon assets', () => {
+  const source = readSource('src/features/codex/CodexScreen.tsx');
+
+  assert.equal(source.includes('../../../../animal_icon.svg'), true);
+  assert.equal(source.includes('../../../../bird_icon.svg'), true);
+  assert.equal(source.includes('../../../../fish_icon.svg'), true);
+  assert.equal(source.includes('../../../../insect_icon.svg'), true);
+  assert.equal(source.includes('../../../../plant.png'), true);
+  assert.equal(source.includes('CodexFilterIcon'), true);
+  assert.equal(source.includes('styles.filterIcon'), true);
+});

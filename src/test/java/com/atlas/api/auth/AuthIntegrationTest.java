@@ -68,6 +68,7 @@ class AuthIntegrationTest {
                 37.5665,
                 126.9780,
                 12.0,
+                "서울특별시 중구 명동",
                 Instant.parse("2026-05-20T10:00:00Z")
             ), headers()),
             Map.class

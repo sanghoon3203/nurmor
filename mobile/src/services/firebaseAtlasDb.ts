@@ -1,5 +1,5 @@
 import { getPublicEnv } from '../config/env';
-import { AnalysisCandidateResponse, AnalysisResponse, CodexEntryResponse, HabitatCell, ObservationResponse } from './api';
+import { AnalysisCandidateResponse, AnalysisResponse, CodexEntryResponse, HabitatCell, ObservationResponse, SpeciesDisplayGroup } from './api';
 import { AtlasMediaType } from './firebaseStorageRest';
 
 type FirestoreValue =
@@ -33,6 +33,8 @@ export type FirebaseCodexEntry = {
   displayName: string;
   scientificName: string | null;
   category: CodexCategory;
+  displayGroup: SpeciesDisplayGroup;
+  regionName: string;
   imageUrl: string | null;
   discoveryNumber: number;
   observationCount: number;
@@ -61,6 +63,8 @@ export type FirebaseCommunityDiscovery = {
   displayName: string;
   scientificName: string | null;
   category: CodexCategory;
+  displayGroup: SpeciesDisplayGroup;
+  regionName: string;
   imageUrl: string | null;
   publicLat: number;
   publicLng: number;
@@ -108,7 +112,7 @@ export type PlantFirebaseObservationInput = {
   userId: string;
   observation: ObservationResponse;
   candidate: AnalysisCandidateResponse;
-  visibility: 'PRIVATE' | 'CELL' | 'PUBLIC';
+  visibility: 'PRIVATE' | 'PUBLIC';
 };
 
 export type PlantFirebaseObservationResult = {
@@ -144,6 +148,7 @@ export async function listNearbyHabitatCells(idToken: string, query: NearbyQuery
         cellKey: stringField(data, 'cellKey', documentId(document.name)),
         centerLat: numberField(data, 'centerLat', 0),
         centerLng: numberField(data, 'centerLng', 0),
+        regionName: stringField(data, 'regionName', '현재 위치'),
         bloomState: stringField(data, 'bloomState', 'UNOBSERVED'),
         bloomScore: numberField(data, 'bloomScore', 0),
         observationCount: numberField(data, 'observationCount', 0),
@@ -206,6 +211,7 @@ export async function createFirebaseObservationDraft(
     status: 'READY_FOR_REVIEW',
     publicLat: cell.centerLat,
     publicLng: cell.centerLng,
+    locationName: '현재 위치',
   };
 
   return {
@@ -223,6 +229,7 @@ export async function plantFirebaseObservation(
   const speciesKey = speciesKeyFromCandidate(input.candidate);
   const codexId = stableDocumentId('codex', [cellKey, speciesKey]);
   const category = inferCategoryFromCandidate(input.candidate);
+  const displayGroup = displayGroupFromCandidate(input.candidate);
   const confidence = normalizedConfidence(input.candidate.confidence);
 
   const [cellDocument, codexDocument, profileDocument] = await Promise.all([
@@ -239,6 +246,7 @@ export async function plantFirebaseObservation(
     cellKey,
     publicLat: input.observation.publicLat,
     publicLng: input.observation.publicLng,
+    regionName: input.observation.locationName ?? '현재 위치',
     existingCell,
     isNewSpecies,
   });
@@ -253,6 +261,7 @@ export async function plantFirebaseObservation(
       selectedCandidateId: input.candidate.id,
       selectedSpeciesKey: speciesKey,
       selectedDisplayName: input.candidate.commonNameKo,
+      selectedDisplayGroup: displayGroup,
       updatedAt: now,
     },
     {
@@ -263,6 +272,7 @@ export async function plantFirebaseObservation(
         'selectedCandidateId',
         'selectedSpeciesKey',
         'selectedDisplayName',
+        'selectedDisplayGroup',
         'updatedAt',
       ],
     }
@@ -276,6 +286,8 @@ export async function plantFirebaseObservation(
     displayName: input.candidate.commonNameKo,
     scientificName: input.candidate.scientificName,
     category,
+    displayGroup,
+    regionName: input.observation.locationName ?? '현재 위치',
     // Media upload is stored on the observation draft today. Wire that Storage URL here
     // before expecting the codex detail gallery to show real captured photos.
     imageUrl: null,
@@ -296,6 +308,8 @@ export async function plantFirebaseObservation(
       displayName: input.candidate.commonNameKo,
       scientificName: input.candidate.scientificName,
       category,
+      displayGroup,
+      regionName: input.observation.locationName ?? '현재 위치',
       // Public same-species galleries read this field. It remains null until the
       // planted observation carries a shareable Storage image URL.
       imageUrl: null,
@@ -314,6 +328,7 @@ export async function plantFirebaseObservation(
     centerLng: plantedCell.centerLng,
     bloomState: plantedCell.bloomState,
     bloomScore: plantedCell.bloomScore,
+    regionName: plantedCell.regionName ?? '현재 위치',
     observationCount: plantedCell.observationCount,
     speciesCount: plantedCell.speciesCount,
     contributorCount: plantedCell.contributorCount,
@@ -485,6 +500,8 @@ function toCodexEntry(document: FirestoreDocument): FirebaseCodexEntry {
     displayName: stringField(data, 'displayName', '이름 없는 기록'),
     scientificName: nullableStringField(data, 'scientificName'),
     category: categoryField(data, 'category'),
+    displayGroup: displayGroupField(data, 'displayGroup'),
+    regionName: stringField(data, 'regionName', '현재 위치'),
     imageUrl: nullableStringField(data, 'imageUrl'),
     discoveryNumber: numberField(data, 'discoveryNumber', 0),
     observationCount: numberField(data, 'observationCount', 0),
@@ -502,6 +519,8 @@ function toCodexEntryResponse(document: FirestoreDocument): CodexEntryResponse {
     displayName: entry.displayName,
     scientificName: entry.scientificName,
     category: entry.category,
+    displayGroup: entry.displayGroup,
+    regionName: entry.regionName,
     observationCount: entry.observationCount,
     bestConfidence: entry.bestConfidence,
   };
@@ -514,6 +533,7 @@ function toHabitatCell(document: FirestoreDocument): HabitatCell {
     cellKey: stringField(data, 'cellKey', documentId(document.name)),
     centerLat: numberField(data, 'centerLat', 0),
     centerLng: numberField(data, 'centerLng', 0),
+    regionName: stringField(data, 'regionName', '현재 위치'),
     bloomState: stringField(data, 'bloomState', 'UNOBSERVED'),
     bloomScore: numberField(data, 'bloomScore', 0),
     observationCount: numberField(data, 'observationCount', 0),
@@ -535,6 +555,8 @@ function toCommunityDiscovery(document: FirestoreDocument, lat: number, lng: num
     displayName: stringField(data, 'displayName', '이름 없는 발견'),
     scientificName: nullableStringField(data, 'scientificName'),
     category: categoryField(data, 'category'),
+    displayGroup: displayGroupField(data, 'displayGroup'),
+    regionName: stringField(data, 'regionName', '현재 위치'),
     imageUrl: nullableStringField(data, 'imageUrl'),
     publicLat,
     publicLng,
@@ -585,6 +607,11 @@ function categoryField(data: Record<string, unknown>, key: string): CodexCategor
   return value === 'PLANT' || value === 'ANIMAL' || value === 'OTHER' ? value : 'OTHER';
 }
 
+function displayGroupField(data: Record<string, unknown>, key: string): SpeciesDisplayGroup {
+  const value = data[key];
+  return isSpeciesDisplayGroup(value) ? value : 'OTHER';
+}
+
 function looksLikeTimestamp(value: string) {
   return /^\d{4}-\d{2}-\d{2}T/.test(value);
 }
@@ -601,6 +628,8 @@ function localAnalysisForObservation(observation: ObservationResponse, mediaType
         id: `candidate_${observation.id}`,
         commonNameKo: label,
         scientificName: null,
+        category: 'OTHER',
+        displayGroup: 'OTHER',
         confidence: 0.5,
         evidence: 'Firebase-only MVP에서는 미디어 업로드와 위치 등록을 먼저 검증합니다.; 실제 생물 판정은 Gemini 서버 재개 후 연결합니다.',
       },
@@ -612,12 +641,14 @@ function nextPlantedCell({
   cellKey,
   publicLat,
   publicLng,
+  regionName,
   existingCell,
   isNewSpecies,
 }: {
   cellKey: string;
   publicLat: number;
   publicLng: number;
+  regionName: string;
   existingCell: HabitatCell | null;
   isNewSpecies: boolean;
 }): HabitatCell {
@@ -630,6 +661,7 @@ function nextPlantedCell({
     cellKey,
     centerLat: existingCell?.centerLat ?? publicLat,
     centerLng: existingCell?.centerLng ?? publicLng,
+    regionName,
     bloomState: bloomStateFor(observationCount, speciesCount),
     bloomScore,
     observationCount,
@@ -704,6 +736,9 @@ function speciesKeyFromCandidate(candidate: AnalysisCandidateResponse) {
 }
 
 function inferCategoryFromCandidate(candidate: AnalysisCandidateResponse): CodexCategory {
+  if (candidate.category === 'PLANT' || candidate.category === 'ANIMAL' || candidate.category === 'OTHER') {
+    return candidate.category;
+  }
   const source = `${candidate.commonNameKo} ${candidate.scientificName ?? ''}`.toLowerCase();
   if (/꽃|풀|나무|초|plant|erigeron|daisy/.test(source)) {
     return 'PLANT';
@@ -712,6 +747,44 @@ function inferCategoryFromCandidate(candidate: AnalysisCandidateResponse): Codex
     return 'ANIMAL';
   }
   return 'OTHER';
+}
+
+function displayGroupFromCandidate(candidate: AnalysisCandidateResponse): SpeciesDisplayGroup {
+  if (isSpeciesDisplayGroup(candidate.displayGroup)) {
+    return candidate.displayGroup;
+  }
+  const source = `${candidate.commonNameKo} ${candidate.scientificName ?? ''}`.toLowerCase();
+  if (/나비|곤충|벌|개미|잠자리|insect|butterfly|pieris|eurema/.test(source)) {
+    return 'INSECT';
+  }
+  if (/새|조류|bird|sparrow|passer|hypsipetes/.test(source)) {
+    return 'BIRD';
+  }
+  if (/어류|물고기|fish|carp|minnow|pseudorasbora/.test(source)) {
+    return 'FISH';
+  }
+  if (/꽃|풀|나무|초|plant|erigeron|daisy/.test(source)) {
+    return 'PLANT';
+  }
+  if (/동물|animal|mammal|otter|lutra/.test(source)) {
+    return 'ANIMAL';
+  }
+  return 'OTHER';
+}
+
+function isSpeciesDisplayGroup(value: unknown): value is SpeciesDisplayGroup {
+  return (
+    value === 'PLANT' ||
+    value === 'ANIMAL' ||
+    value === 'BIRD' ||
+    value === 'FISH' ||
+    value === 'INSECT' ||
+    value === 'AMPHIBIAN' ||
+    value === 'REPTILE' ||
+    value === 'MAMMAL' ||
+    value === 'FUNGI' ||
+    value === 'OTHER'
+  );
 }
 
 function normalizedConfidence(value: number) {

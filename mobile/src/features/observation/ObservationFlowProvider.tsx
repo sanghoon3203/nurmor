@@ -61,6 +61,7 @@ type ObservationFlowState = {
   mediaAsset: MediaAssetResponse | null;
   observation: ObservationResponse | null;
   analysis: AnalysisResponse | null;
+  locationName: string | null;
   plantedCell: HabitatCell | null;
   codexEntries: CodexEntryResponse[];
 };
@@ -70,7 +71,7 @@ type ObservationFlowContextValue = {
   isBusy: boolean;
   reset: () => void;
   startCaptureAnalysis: (asset: PickedObservationAsset) => Promise<void>;
-  plantCandidate: (speciesCandidateId: string, visibility: 'PRIVATE' | 'CELL' | 'PUBLIC') => Promise<void>;
+  plantCandidate: (speciesCandidateId: string, visibility: 'PRIVATE' | 'PUBLIC') => Promise<void>;
 };
 
 const initialState: ObservationFlowState = {
@@ -81,6 +82,7 @@ const initialState: ObservationFlowState = {
   mediaAsset: null,
   observation: null,
   analysis: null,
+  locationName: null,
   plantedCell: null,
   codexEntries: [],
 };
@@ -120,16 +122,17 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState({
           ...initialState,
           status: 'locating',
-          message: '현재 위치 metadata를 확인하는 중',
+          message: '현재 위치 이름을 확인하는 중',
         });
 
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== 'granted') {
-          throw new Error('위치 권한이 있어야 관찰 기록을 지도 셀에 심을 수 있습니다.');
+          throw new Error('위치 권한이 있어야 관찰 기록에 위치 이름을 저장할 수 있습니다.');
         }
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
+        const locationName = await locationNameFor(location.coords.latitude, location.coords.longitude);
 
         setState((current) => ({
           ...current,
@@ -181,6 +184,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           locationAccuracyMeters: location.coords.accuracy ?? 0,
+          locationName,
           capturedAt: capturedAt.toISOString(),
         });
 
@@ -190,6 +194,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
           message: 'Atlas API에서 생물 후보를 분석하는 중',
           mediaAsset,
           observation,
+          locationName: observation.locationName ?? locationName,
         }));
 
         const analysis = await analyzeObservation(auth.session.idToken, observation.id);
@@ -197,7 +202,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'ready-for-review',
-          message: '분석 후보를 확인하고 지도에 심어주세요.',
+          message: '분석 후보를 확인하고 위치 이름으로 기록해 주세요.',
           analysis,
         }));
       } catch (error) {
@@ -213,7 +218,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const plantCandidate = useCallback(
-    async (speciesCandidateId: string, visibility: 'PRIVATE' | 'CELL' | 'PUBLIC') => {
+    async (speciesCandidateId: string, visibility: 'PRIVATE' | 'PUBLIC') => {
       try {
         if (!auth.session?.idToken) {
           throw new Error('Firebase 로그인이 완료된 뒤 다시 시도해 주세요.');
@@ -229,7 +234,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'planting',
-          message: '선택한 후보를 Atlas 셀 도감에 심는 중',
+          message: '선택한 후보를 위치 이름으로 저장하는 중',
           errorMessage: null,
         }));
 
@@ -242,7 +247,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'planted',
-          message: 'Atlas 셀 도감에 기록이 반영되었습니다.',
+          message: `${plantedCell.regionName ?? current.locationName ?? '현재 위치'} 기록이 반영되었습니다.`,
           plantedCell,
           codexEntries,
         }));
@@ -250,7 +255,7 @@ export function ObservationFlowProvider({ children }: { children: ReactNode }) {
         setState((current) => ({
           ...current,
           status: 'error',
-          message: '지도에 심기 요청에 실패했습니다.',
+          message: '기록 저장 요청에 실패했습니다.',
           errorMessage: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
         }));
       }
@@ -294,4 +299,22 @@ function defaultNameForMime(mimeType: string): string {
     return 'capture.m4a';
   }
   return 'capture.jpg';
+}
+
+async function locationNameFor(latitude: number, longitude: number): Promise<string> {
+  try {
+    const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+    const parts = [
+      place?.region,
+      place?.city,
+      place?.district,
+      place?.street,
+      place?.name,
+    ]
+      .map((part) => part?.trim())
+      .filter(Boolean);
+    return [...new Set(parts)].join(' ') || '현재 위치';
+  } catch {
+    return '현재 위치';
+  }
 }

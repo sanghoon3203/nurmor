@@ -4,11 +4,12 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientScreen, RevealView } from '../atlas/glass';
-import { discoveryCandidate } from '../atlas/mockData';
 import { ProgressBar } from '../atlas/ui';
 import { useObservationFlow } from '../observation/ObservationFlowProvider';
 import { colors, glass, radii } from '../../theme/tokens';
 import { defaultShareOption, ShareOptionId, shareOptions, visibilityForShareOption } from '../capture/recordFlowViewModel';
+
+const sparklesLoader = require('../../../assets/Sparkles Loop Loader ai.gif');
 
 export function AnalysisScreen() {
   const flow = useObservationFlow();
@@ -28,23 +29,17 @@ export function AnalysisScreen() {
         confidence: Math.round(candidate.confidence * 100) > 100 ? Math.round(candidate.confidence) : Math.round(candidate.confidence * 100),
         evidence: splitEvidence(candidate.evidence),
       }
-    : {
-        id: null,
-        commonName: discoveryCandidate.commonName,
-        scientificName: discoveryCandidate.scientificName,
-        confidence: discoveryCandidate.confidence,
-        evidence: discoveryCandidate.evidence,
-      };
+    : null;
   const mediaUri = flow.state.media?.uri ?? null;
+  const locationName = flow.state.plantedCell?.regionName ?? flow.state.observation?.locationName ?? flow.state.locationName ?? '현재 위치';
 
   const plant = async () => {
-    if (!displayCandidate.id) {
-      router.push('/cell');
+    if (!displayCandidate?.id) {
       return;
     }
 
     await flow.plantCandidate(displayCandidate.id, visibilityForShareOption(shareOptionId));
-    router.push(shareOptionId === 'public' ? '/(tabs)/community' : '/cell');
+    router.push(shareOptionId === 'public' ? '/(tabs)/community' : '/(tabs)/codex');
   };
 
   return (
@@ -75,7 +70,7 @@ export function AnalysisScreen() {
                 </View>
               )}
               <View style={styles.photoOverlay}>
-                <Text style={styles.photoOverlayTitle}>{flow.isBusy ? '판정 준비 중' : '사진 분석 완료'}</Text>
+                <Text style={styles.photoOverlayTitle}>{displayCandidate ? '사진 분석 완료' : '사진을 판정하는 중'}</Text>
                 <Text style={styles.photoOverlayBody}>{flow.state.message}</Text>
               </View>
             </View>
@@ -83,58 +78,68 @@ export function AnalysisScreen() {
 
           <RevealView delay={110}>
             <View style={styles.judgementCard}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardKicker}>{isFirebaseOnly ? '임시 후보' : 'AI 판정 후보'}</Text>
-                  <Text style={styles.candidateTitle}>{displayCandidate.commonName}</Text>
-                  <Text style={styles.scientificName}>{displayCandidate.scientificName}</Text>
-                </View>
-                <View style={styles.confidenceCircle}>
-                  <Text style={styles.confidenceValue}>{displayCandidate.confidence}%</Text>
-                  <Text style={styles.confidenceLabel}>신뢰도</Text>
-                </View>
-              </View>
+              {displayCandidate ? (
+                <>
+                  <View style={styles.cardHeader}>
+                    <View>
+                      <Text style={styles.cardKicker}>{isFirebaseOnly ? '임시 후보' : 'AI 판정 후보'}</Text>
+                      <Text style={styles.candidateTitle}>{displayCandidate.commonName}</Text>
+                      <Text style={styles.scientificName}>{displayCandidate.scientificName}</Text>
+                    </View>
+                    <View style={styles.confidenceCircle}>
+                      <Text style={styles.confidenceValue}>{displayCandidate.confidence}%</Text>
+                      <Text style={styles.confidenceLabel}>신뢰도</Text>
+                    </View>
+                  </View>
 
-              <View style={styles.confidenceBar}>
-                <ProgressBar value={displayCandidate.confidence} />
-              </View>
+                  <View style={styles.confidenceBar}>
+                    <ProgressBar value={displayCandidate.confidence} />
+                  </View>
 
-              {candidates.length > 1 ? (
-                <View style={styles.candidateRail}>
-                  {candidates.map((item) => {
-                    const selected = displayCandidate.id === item.id;
-                    const confidence = Math.round(item.confidence * 100) > 100 ? Math.round(item.confidence) : Math.round(item.confidence * 100);
-                    return (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={selected ? { selected: true } : {}}
-                        key={item.id}
-                        onPress={() => setSelectedCandidateId(item.id)}
-                        style={[styles.candidateChip, selected ? styles.candidateChipSelected : null]}
-                      >
-                        <Text style={[styles.candidateChipText, selected ? styles.candidateChipTextSelected : null]}>{item.commonNameKo}</Text>
-                        <Text style={[styles.candidateChipMeta, selected ? styles.candidateChipTextSelected : null]}>{confidence}%</Text>
-                      </Pressable>
-                    );
-                  })}
+                  {candidates.length > 1 ? (
+                    <View style={styles.candidateRail}>
+                      {candidates.map((item) => {
+                        const selected = displayCandidate.id === item.id;
+                        const confidence = Math.round(item.confidence * 100) > 100 ? Math.round(item.confidence) : Math.round(item.confidence * 100);
+                        return (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={selected ? { selected: true } : {}}
+                            key={item.id}
+                            onPress={() => setSelectedCandidateId(item.id)}
+                            style={[styles.candidateChip, selected ? styles.candidateChipSelected : null]}
+                          >
+                            <Text style={[styles.candidateChipText, selected ? styles.candidateChipTextSelected : null]}>{item.commonNameKo}</Text>
+                            <Text style={[styles.candidateChipMeta, selected ? styles.candidateChipTextSelected : null]}>{confidence}%</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+
+                  <View style={styles.evidenceList}>
+                    <Text style={styles.evidenceTitle}>판정 근거</Text>
+                    {displayCandidate.evidence.map((item) => (
+                      <Text key={item} style={styles.evidenceItem}>
+                        · {item}
+                      </Text>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={styles.loaderState}>
+                  <Image source={sparklesLoader} style={styles.loaderGif} resizeMode="contain" />
+                  <Text style={styles.loaderTitle}>사진을 판정하는 중</Text>
+                  <Text style={styles.loaderBody}>이름을 추정하기 전까지 임시 생물 이름은 표시하지 않습니다.</Text>
                 </View>
-              ) : null}
-
-              <View style={styles.evidenceList}>
-                <Text style={styles.evidenceTitle}>판정 근거</Text>
-                {displayCandidate.evidence.map((item) => (
-                  <Text key={item} style={styles.evidenceItem}>
-                    · {item}
-                  </Text>
-                ))}
-              </View>
+              )}
             </View>
           </RevealView>
 
           <RevealView delay={150}>
             <View style={styles.shareCard}>
               <Text style={styles.shareTitle}>기록 공유 범위</Text>
-              <Text style={styles.shareBody}>정확 좌표는 공개하지 않고, 선택한 범위에 따라 셀 도감 또는 커뮤니티에 심습니다.</Text>
+              <Text style={styles.shareBody}>정확 좌표는 서버에만 저장하고, 화면에는 {locationName} 위치 이름으로 기록합니다.</Text>
               <View style={styles.shareOptions}>
                 {shareOptions.map((option) => {
                   const selected = shareOptionId === option.id;
@@ -166,8 +171,8 @@ export function AnalysisScreen() {
 
           <RevealView delay={210}>
             <View style={styles.buttons}>
-              <Pressable accessibilityRole="button" style={[styles.primaryButton, flow.isBusy || flow.state.status === 'error' ? styles.disabledButton : null]} onPress={plant} disabled={flow.isBusy || flow.state.status === 'error'}>
-                <Text style={styles.primaryButtonText}>{flow.state.status === 'planting' ? '심는 중' : shareOptionId === 'public' ? '커뮤니티에 공유하기' : '지도에 심기'}</Text>
+              <Pressable accessibilityRole="button" style={[styles.primaryButton, flow.isBusy || flow.state.status === 'error' || !displayCandidate ? styles.disabledButton : null]} onPress={plant} disabled={flow.isBusy || flow.state.status === 'error' || !displayCandidate}>
+                <Text style={styles.primaryButtonText}>{flow.state.status === 'planting' ? '저장 중' : shareOptionId === 'public' ? '커뮤니티에 공유하기' : '내 도감에 저장하기'}</Text>
               </Pressable>
               <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => router.back()}>
                 <Text style={styles.secondaryButtonText}>다시 선택하기</Text>
@@ -371,6 +376,28 @@ const styles = StyleSheet.create({
   },
   evidenceList: {
     gap: 8,
+  },
+  loaderState: {
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loaderGif: {
+    width: 136,
+    height: 136,
+  },
+  loaderTitle: {
+    color: colors.ink,
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  loaderBody: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   evidenceTitle: {
     color: colors.ink,

@@ -46,6 +46,7 @@ export type CreateObservationRequest = {
   latitude: number;
   longitude: number;
   locationAccuracyMeters: number;
+  locationName?: string;
   capturedAt: string;
 };
 
@@ -53,7 +54,8 @@ export type ObservationResponse = {
   id: string;
   habitatCellId: string;
   status: string;
-  visibility?: 'PRIVATE' | 'CELL' | 'PUBLIC' | string;
+  visibility?: 'PRIVATE' | 'PUBLIC' | string;
+  locationName?: string;
   publicLat: number;
   publicLng: number;
   capturedAt?: string;
@@ -63,6 +65,8 @@ export type AnalysisCandidateResponse = {
   id: string;
   commonNameKo: string;
   scientificName: string | null;
+  category: 'PLANT' | 'ANIMAL' | 'OTHER' | string;
+  displayGroup: SpeciesDisplayGroup;
   confidence: number;
   evidence: string;
 };
@@ -77,7 +81,7 @@ export type AnalysisResponse = {
 
 export type PlantObservationRequest = {
   speciesCandidateId: string;
-  visibility: 'PRIVATE' | 'CELL' | 'PUBLIC';
+  visibility: 'PRIVATE' | 'PUBLIC';
 };
 
 export type CodexEntryResponse = {
@@ -87,7 +91,8 @@ export type CodexEntryResponse = {
   displayName: string;
   scientificName?: string | null;
   category?: string;
-  displayGroup?: SpeciesDisplayGroup;
+  displayGroup: SpeciesDisplayGroup;
+  regionName?: string;
   representativeMediaKey?: string | null;
   discoveryNumber?: number;
   observationCount: number;

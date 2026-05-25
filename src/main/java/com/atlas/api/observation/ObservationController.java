@@ -29,7 +29,7 @@ public class ObservationController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ObservationResponse create(Authentication authentication, @Valid @RequestBody CreateObservationRequest request) {
-        return ObservationResponse.from(service.create(userId(authentication), request));
+        return service.create(userId(authentication), request);
     }
 
     @PostMapping("/{id}/analyze")
