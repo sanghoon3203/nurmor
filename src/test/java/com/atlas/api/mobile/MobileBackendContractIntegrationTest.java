@@ -95,7 +95,7 @@ class MobileBackendContractIntegrationTest {
         assertThat(footprints.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(footprints.getBody()).hasSize(1);
         Map<?, ?> footprintItem = (Map<?, ?>) footprints.getBody().getFirst();
-        assertThat(footprintItem).containsKeys(
+        assertContainsKeys(footprintItem,
             "habitatCellId",
             "regionName",
             "centerLat",
@@ -118,7 +118,7 @@ class MobileBackendContractIntegrationTest {
             .filter(cell -> seeded.habitatCellId().toString().equals(((Map<?, ?>) cell).get("id")))
             .findFirst()
             .orElseThrow();
-        assertThat(cellItem).containsKeys("regionName", "description", "habitatTypes", "boundaryCoordinates");
+        assertContainsKeys(cellItem, "regionName", "description", "habitatTypes", "boundaryCoordinates");
 
         ResponseEntity<Map> codex = restTemplate.exchange(
             "/api/codex?category=ANIMAL&page=0&size=20",
@@ -144,7 +144,7 @@ class MobileBackendContractIntegrationTest {
         assertThat(communityItem.containsKey("distanceKm")).isTrue();
         assertThat(communityItem.containsKey("likeCount")).isTrue();
         assertThat(communityItem.containsKey("commentCount")).isTrue();
-        assertThat(communityItem).containsKeys("codexNumber", "displayGroup", "imageUrl", "regionName");
+        assertContainsKeys(communityItem, "codexNumber", "displayGroup", "imageUrl", "regionName");
 
         ResponseEntity<List> mapDiscoveries = restTemplate.exchange(
             "/api/map/discoveries?lat=37.5665&lng=126.9780&radiusKm=5",
@@ -154,7 +154,7 @@ class MobileBackendContractIntegrationTest {
         );
         assertThat(mapDiscoveries.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(mapDiscoveries.getBody()).hasSize(1);
-        assertThat((Map<?, ?>) mapDiscoveries.getBody().getFirst()).containsKeys(
+        assertContainsKeys((Map<?, ?>) mapDiscoveries.getBody().getFirst(),
             "publicLat",
             "publicLng",
             "codexNumber",
@@ -223,7 +223,11 @@ class MobileBackendContractIntegrationTest {
         );
         assertThat(analysis.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<?> candidates = (List<?>) analysis.getBody().get("candidates");
-        UUID candidateId = UUID.fromString((String) ((Map<?, ?>) candidates.getFirst()).get("id"));
+        Map<?, ?> firstCandidate = (Map<?, ?>) candidates.getFirst();
+        assertThat(firstCandidate.get("commonNameKo")).isEqualTo("노랑나비");
+        assertThat(firstCandidate.get("scientificName")).isEqualTo("Eurema hecabe");
+        assertThat((String) firstCandidate.get("evidence")).contains("날개색", "체형");
+        UUID candidateId = UUID.fromString((String) firstCandidate.get("id"));
 
         ResponseEntity<Map> plant = restTemplate.exchange(
             "/api/observations/%s/plant".formatted(observationId),
@@ -245,6 +249,12 @@ class MobileBackendContractIntegrationTest {
 
     private static HttpEntity<Void> request(String token) {
         return new HttpEntity<>(headers(token));
+    }
+
+    private static void assertContainsKeys(Map<?, ?> map, String... keys) {
+        for (String key : keys) {
+            assertThat(map.containsKey(key)).as("contains key %s", key).isTrue();
+        }
     }
 
     private record SeededObservation(UUID observationId, UUID habitatCellId) {

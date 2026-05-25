@@ -12,6 +12,18 @@ class GeminiResponseParserTest {
     private final GeminiResponseParser parser = new GeminiResponseParser(new ObjectMapper());
 
     @Test
+    void geminiPromptRequiresNameScientificNameAndObservableFeatures() {
+        String prompt = GeminiHttpAnalysisClient.promptForAnalysis(37.56625, 126.97875, "2026-05-21T02:30:00Z");
+
+        assertThat(prompt).contains("commonNameKo");
+        assertThat(prompt).contains("scientificName");
+        assertThat(prompt).contains("evidence");
+        assertThat(prompt).contains("관찰 특징");
+        assertThat(prompt).contains("이항식 학명");
+        assertThat(prompt).contains("null 금지");
+    }
+
+    @Test
     void parsesStructuredCandidatesFromGenerateContentResponse() {
         String response = """
             {

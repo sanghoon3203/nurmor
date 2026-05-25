@@ -82,24 +82,45 @@ public class GeminiHttpAnalysisClient implements GeminiAnalysisClient {
     }
 
     private static String prompt(ObservationRecord observationRecord) {
-        return """
-            사용자가 업로드한 사진, 영상 또는 소리에서 관찰 가능한 생물을 한국어로 추정하세요.
-            확정하지 말고 후보로 제시하세요.
-            위치는 비공개 정확 좌표 대신 서버가 계산한 공개 셀 위치만 참고하세요.
-            publicLat=%s, publicLng=%s, capturedAt=%s
-            """.formatted(
+        return promptForAnalysis(
             observationRecord.getPublicLat(),
             observationRecord.getPublicLng(),
-            observationRecord.getCapturedAt()
+            observationRecord.getCapturedAt().toString()
         );
+    }
+
+    static String promptForAnalysis(double publicLat, double publicLng, String capturedAt) {
+        return """
+            당신은 생태 관찰 기록을 검토하는 분류 보조자입니다.
+            업로드된 사진, 영상 또는 소리에서 실제로 관찰 가능한 생물 후보만 JSON으로 반환하세요.
+
+            필수 출력:
+            - candidates: 1개 이상 5개 이하
+            - 각 후보의 commonNameKo: 한국어 통용명. 종 확정이 어려우면 "흰나비류"처럼 분류군 수준의 신중한 이름
+            - 각 후보의 scientificName: 가능하면 이항식 학명(Genus species). 종 수준이 불확실하면 Genus sp. 또는 가장 좁은 분류군 학명. null 금지
+            - 각 후보의 confidence: 0과 1 사이 숫자
+            - 각 후보의 evidence: 한국어 1문장. 색, 형태, 무늬, 소리, 움직임, 보이는 부위 등 관찰 특징을 2개 이상 포함
+
+            금지:
+            - 보이지 않거나 들리지 않는 특징을 단정하지 마세요.
+            - 위치만으로 종을 확정하지 마세요.
+            - 설명 문장이나 Markdown 없이 JSON schema에 맞는 값만 반환하세요.
+
+            참고 metadata:
+            publicLat=%s, publicLng=%s, capturedAt=%s
+            """.formatted(
+            publicLat,
+            publicLng,
+            capturedAt
+        ).trim();
     }
 
     private static Map<String, Object> responseSchema() {
         Map<String, Object> candidateProperties = new LinkedHashMap<>();
-        candidateProperties.put("commonNameKo", Map.of("type", "string", "description", "Korean common name or cautious label"));
-        candidateProperties.put("scientificName", Map.of("type", List.of("string", "null"), "description", "Scientific name when likely"));
+        candidateProperties.put("commonNameKo", Map.of("type", "string", "description", "Korean common name or cautious taxon label"));
+        candidateProperties.put("scientificName", Map.of("type", "string", "description", "Scientific name for the most specific safe taxon; never null"));
         candidateProperties.put("confidence", Map.of("type", "number", "minimum", 0, "maximum", 1));
-        candidateProperties.put("evidence", Map.of("type", "string", "description", "Short Korean evidence summary"));
+        candidateProperties.put("evidence", Map.of("type", "string", "description", "One Korean sentence with at least two observable visual or audio features"));
 
         return Map.of(
             "type", "object",
