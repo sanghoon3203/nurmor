@@ -44,6 +44,41 @@
         }
       ],
       [
+        "expo-font",
+        {
+          "fonts": [
+            "../BookkGothic_Light.ttf",
+            "../BookkGothic_Bold.ttf"
+          ],
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "BookkGothic-Light",
+                "fontDefinitions": [
+                  {
+                    "path": "../BookkGothic_Light.ttf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "BookkGothic-Bold",
+                "fontDefinitions": [
+                  {
+                    "path": "../BookkGothic_Bold.ttf",
+                    "weight": 700
+                  }
+                ]
+              }
+            ]
+          },
+          "ios": [
+            "../BookkGothic_Light.ttf",
+            "../BookkGothic_Bold.ttf"
+          ]
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Atlas uses your camera to capture ecological observations.",
