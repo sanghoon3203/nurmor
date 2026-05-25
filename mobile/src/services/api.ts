@@ -92,6 +92,8 @@ export type CodexEntryResponse = {
   discoveryNumber?: number;
   observationCount: number;
   bestConfidence: number;
+  firstObservedAt?: string | null;
+  lastObservedAt?: string | null;
 };
 
 export type SpeciesDisplayGroup =

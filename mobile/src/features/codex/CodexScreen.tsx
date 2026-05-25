@@ -1,27 +1,23 @@
 import { router } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientScreen, RevealView } from '../atlas/glass';
 import { codexEntries } from '../atlas/mockData';
 import { useAuth } from '../auth/AuthProvider';
 import { useObservationFlow } from '../observation/ObservationFlowProvider';
-import { CodexEntryResponse } from '../../services/api';
 import { FirebaseCodexEntry, listCodexEntries } from '../../services/firebaseAtlasDb';
+import { SpeciesCard, SpeciesDisplayGroup } from '../../types/species';
 import { colors, glass, radii } from '../../theme/tokens';
 import {
-  CodexCardViewModel,
   CodexFamily,
   CodexIcon,
-  codexFamilyIcon,
-  codexFamilyLabel,
   codexFilters,
-  filterCodexCards,
-  inferCodexFamily,
   toDisplayNumber,
 } from './codexViewModel';
+import { firebaseCodexToSpeciesCard, sampleCodexToSpeciesCard, toSpeciesCard } from './codexMapper';
+import { SpeciesCodexCard } from './SpeciesCodexCard';
 
 type RemoteStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -90,23 +86,21 @@ export function CodexScreen() {
 
   const cards = useMemo(() => {
     if (flow.state.codexEntries.length > 0) {
-      return flow.state.codexEntries.map(toFlowCard);
+      return flow.state.codexEntries.map((entry) => toSpeciesCard(entry, { regionName: '현재 셀' }));
     }
     if (remoteEntries.length > 0) {
-      return remoteEntries.map(toRemoteCard);
+      return remoteEntries.map(firebaseCodexToSpeciesCard);
     }
     if (codexEntries.length > 0) {
-      return sampleEntries.map(toSampleCard);
+      return sampleEntries.map(sampleCodexToSpeciesCard);
     }
     return [];
   }, [flow.state.codexEntries, remoteEntries]);
 
-  const filteredCards = useMemo(() => filterCodexCards(cards, filter), [cards, filter]);
+  const filteredCards = useMemo(() => filterSpeciesCards(cards, filter), [cards, filter]);
   const counts = useMemo(() => countByFamily(cards), [cards]);
   const selectedLabel = codexFilters.find((item) => item.value === filter)?.label ?? '전체';
   const hasLiveEntries = flow.state.codexEntries.length > 0 || remoteEntries.length > 0;
-  const featuredCard = filteredCards[0] ?? null;
-  const gridCards = featuredCard ? filteredCards.slice(1) : filteredCards;
 
   return (
     <GradientScreen style={styles.screen}>
@@ -147,12 +141,6 @@ export function CodexScreen() {
             </ScrollView>
           </RevealView>
 
-          {featuredCard ? (
-            <RevealView delay={105}>
-              <CodexFeaturedGlassCard entry={featuredCard} />
-            </RevealView>
-          ) : null}
-
           <RevealView delay={110}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>
@@ -170,10 +158,14 @@ export function CodexScreen() {
             </View>
           </RevealView>
 
-          <View style={styles.grid}>
-            {gridCards.map((entry, index) => (
-              <RevealView key={`${filter}-${entry.id}`} delay={140 + Math.min(index, 8) * 45} style={styles.gridItem}>
-                <CodexFieldCard entry={entry} />
+          <View style={styles.unifiedList}>
+            {filteredCards.map((entry, index) => (
+              <RevealView key={`${filter}-${entry.codexEntryId}`} delay={120 + Math.min(index, 8) * 45} style={styles.unifiedItem}>
+                <SpeciesCodexCard
+                  data={entry}
+                  onFollow={(id) => console.log('Follow:', id)}
+                  onPress={openCodexDetail}
+                />
               </RevealView>
             ))}
           </View>
@@ -208,117 +200,23 @@ export function CodexScreen() {
   );
 }
 
-function openCodexDetail(entry: CodexCardViewModel) {
+function openCodexDetail(entry: SpeciesCard) {
+  const family = familyFromDisplayGroup(entry.displayGroup);
   router.push({
     pathname: '/codex-detail',
     params: {
-      id: entry.id,
-      displayNumber: entry.displayNumber,
-      title: entry.title,
-      scientificName: entry.scientificName,
-      speciesKey: entry.speciesKey ?? entry.scientificName,
-      category: entry.category,
-      categoryLabel: entry.categoryLabel,
-      date: entry.date,
-      place: entry.place,
+      id: entry.codexEntryId,
+      displayNumber: toDisplayNumber(Math.max(0, entry.codexNumber - 1)),
+      title: entry.displayName,
+      scientificName: entry.scientificName ?? entry.displayName,
+      speciesKey: entry.scientificName ?? entry.displayName,
+      category: family,
+      categoryLabel: groupLabel(entry.displayGroup),
+      date: formatSpeciesDate(entry.lastObservedAt),
+      place: entry.regionName,
       imageUrl: entry.imageUrl ?? '',
     },
   });
-}
-
-function CodexFeaturedGlassCard({ entry }: { entry: CodexCardViewModel }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={() => openCodexDetail(entry)} style={({ pressed }) => [styles.featuredCard, pressed ? styles.cardPressed : null]}>
-      <View style={styles.featuredHeader}>
-        <View style={styles.featuredIconCircle}>
-          <IconMark icon={entry.categoryIcon} selected={false} />
-        </View>
-        <View style={styles.featuredHeaderText}>
-          <Text style={styles.featuredTitle} numberOfLines={1}>
-            {entry.title}
-          </Text>
-          <Text style={styles.featuredSubtitle} numberOfLines={1}>
-            {entry.scientificName}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.featuredImageLayer}>
-        {entry.imageUrl ? (
-          <Image source={{ uri: entry.imageUrl }} resizeMode="cover" style={styles.featuredImage} />
-        ) : (
-          <View style={styles.featuredFallbackScene}>
-            <Text style={styles.featuredFallbackSymbol}>{illustrationSymbol(entry.illustration, entry.title)}</Text>
-          </View>
-        )}
-      </View>
-
-      <BlurView intensity={90} tint="dark" style={styles.featuredBlurPanel}>
-        <View style={styles.featuredBlurGradient} />
-        <View style={styles.featuredBlurGradientLift} />
-        <View style={styles.featuredBlurGradientBase} />
-        <BlurView intensity={34} tint="light" style={styles.featuredRegionGlass}>
-          <Text style={styles.featuredRegionText}>{entry.categoryLabel}</Text>
-        </BlurView>
-        <Text style={styles.featuredPlace} numberOfLines={1}>
-          {entry.place}
-        </Text>
-        <Text style={styles.featuredDescription} numberOfLines={2}>
-          {entry.title} 기록이 도감에 저장되었습니다. 발견 날짜는 {entry.date}입니다.
-        </Text>
-      </BlurView>
-
-      <BlurView intensity={34} tint="light" style={styles.featuredFollowGlass}>
-        <Text style={styles.featuredFollowText}>Follow +</Text>
-      </BlurView>
-    </Pressable>
-  );
-}
-
-function CodexFieldCard({ entry }: { entry: CodexCardViewModel }) {
-  const openDetail = () => {
-    openCodexDetail(entry);
-  };
-
-  return (
-    <Pressable accessibilityRole="button" onPress={openDetail} style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}>
-      <View style={styles.cardTopRow}>
-        <Text style={styles.numberPill}>{entry.displayNumber}</Text>
-        <IconMark icon={entry.categoryIcon} selected={false} compact />
-      </View>
-
-      <View style={styles.illustrationFrame}>
-        <View style={[styles.foliageBlob, styles.foliageLeft]} />
-        <View style={[styles.foliageBlob, styles.foliageRight]} />
-        {entry.imageUrl ? (
-          <Image source={{ uri: entry.imageUrl }} style={styles.entryImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.symbolScene}>
-            <Text style={styles.symbolArt}>{illustrationSymbol(entry.illustration, entry.title)}</Text>
-            <View style={styles.groundLine} />
-          </View>
-        )}
-      </View>
-
-      <View style={styles.cardBody}>
-        <Text style={styles.entryTitle} numberOfLines={1}>
-          {entry.title}
-        </Text>
-        <Text style={styles.scientificName} numberOfLines={1}>
-          {entry.scientificName}
-        </Text>
-        <View style={styles.metaRow}>
-          <Text style={[styles.categoryBadge, badgeStyle(entry.category)]}>{entry.categoryLabel}</Text>
-        </View>
-        <View style={styles.bottomRow}>
-          <Text style={styles.placeDate} numberOfLines={1}>
-            {entry.date} {entry.place}
-          </Text>
-          <Text style={styles.bookmark}>▱</Text>
-        </View>
-      </View>
-    </Pressable>
-  );
 }
 
 function IconMark({ icon, selected, compact = false }: { icon: CodexIcon; selected: boolean; compact?: boolean }) {
@@ -330,83 +228,24 @@ function IconMark({ icon, selected, compact = false }: { icon: CodexIcon; select
   );
 }
 
-function toFlowCard(entry: CodexEntryResponse, index: number): CodexCardViewModel {
-  const family = inferCodexFamily({
-    category: entry.category,
-    title: entry.displayName,
-    scientificName: entry.scientificName ?? entry.speciesKey,
-  });
-
-  return {
-    id: entry.id,
-    displayNumber: toDisplayNumber(index),
-    title: entry.displayName,
-    scientificName: entry.scientificName ?? entry.speciesKey,
-    speciesKey: entry.speciesKey,
-    category: family,
-    categoryLabel: codexFamilyLabel(family),
-    categoryIcon: codexFamilyIcon(family),
-    illustration: family,
-    date: '방금 전',
-    place: '현재 셀',
-    isLatest: index === 0,
-  };
+function filterSpeciesCards(cards: SpeciesCard[], filter: CodexFamily) {
+  if (filter === 'ALL') {
+    return cards;
+  }
+  return cards.filter((card) => familyFromDisplayGroup(card.displayGroup) === filter);
 }
 
-function toRemoteCard(entry: FirebaseCodexEntry, index: number): CodexCardViewModel {
-  const family = inferCodexFamily({
-    category: entry.category,
-    title: entry.displayName,
-    scientificName: entry.scientificName ?? entry.speciesKey,
-  });
-
-  return {
-    id: entry.id,
-    displayNumber: toDisplayNumber(index),
-    title: entry.displayName,
-    scientificName: entry.scientificName ?? entry.speciesKey,
-    speciesKey: entry.speciesKey,
-    category: family,
-    categoryLabel: codexFamilyLabel(family),
-    categoryIcon: codexFamilyIcon(family),
-    illustration: family,
-    date: formatDate(entry.createdAt),
-    place: '서식지 셀',
-    imageUrl: entry.imageUrl,
-    isLatest: index === 0,
-  };
-}
-
-function toSampleCard(entry: (typeof sampleEntries)[number], index: number): CodexCardViewModel {
-  const family = inferCodexFamily(entry);
-
-  return {
-    id: entry.id,
-    displayNumber: toDisplayNumber(index),
-    title: entry.title,
-    scientificName: entry.scientificName,
-    speciesKey: entry.scientificName.toLowerCase().replace(/\s+/g, '-'),
-    category: family,
-    categoryLabel: codexFamilyLabel(family),
-    categoryIcon: codexFamilyIcon(family),
-    illustration: family,
-    date: entry.date,
-    place: entry.place,
-    isLatest: index === 0,
-  };
-}
-
-function countByFamily(cards: CodexCardViewModel[]) {
+function countByFamily(cards: SpeciesCard[]) {
   return codexFilters.reduce<Record<CodexFamily, number>>(
     (next, item) => ({
       ...next,
-      [item.value]: item.value === 'ALL' ? cards.length : cards.filter((card) => card.category === item.value).length,
+      [item.value]: item.value === 'ALL' ? cards.length : cards.filter((card) => familyFromDisplayGroup(card.displayGroup) === item.value).length,
     }),
     { ALL: 0, PLANT: 0, ANIMAL: 0, FISH: 0, INSECT: 0, OTHER: 0 }
   );
 }
 
-function formatDate(value: string | null) {
+function formatSpeciesDate(value: string | null) {
   if (!value) {
     return '날짜 없음';
   }
@@ -417,32 +256,17 @@ function formatDate(value: string | null) {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function illustrationSymbol(family: CodexFamily, title: string) {
-  if (/다람쥐/.test(title)) return '🐿';
-  if (/수달/.test(title)) return '🦦';
-  if (/고슴도치/.test(title)) return '🦔';
-  if (/참새|직박구리|새/.test(title)) return '🐦';
-  if (/개구리/.test(title)) return '🐸';
-  if (family === 'PLANT') return '🌿';
-  if (family === 'FISH') return '🐟';
-  if (family === 'INSECT') return '🪲';
-  if (family === 'ANIMAL') return '🐾';
-  return '？';
+function familyFromDisplayGroup(group: SpeciesDisplayGroup): Exclude<CodexFamily, 'ALL'> {
+  if (group === 'PLANT') return 'PLANT';
+  if (group === 'FISH') return 'FISH';
+  if (group === 'INSECT') return 'INSECT';
+  if (group === 'OTHER' || group === 'FUNGI') return 'OTHER';
+  return 'ANIMAL';
 }
 
-function badgeStyle(family: CodexFamily) {
-  switch (family) {
-    case 'PLANT':
-      return styles.badgePlant;
-    case 'ANIMAL':
-      return styles.badgeAnimal;
-    case 'FISH':
-      return styles.badgeFish;
-    case 'INSECT':
-      return styles.badgeInsect;
-    default:
-      return styles.badgeOther;
-  }
+function groupLabel(group: SpeciesDisplayGroup) {
+  const family = familyFromDisplayGroup(group);
+  return codexFilters.find((item) => item.value === family)?.label ?? '기타';
 }
 
 const styles = StyleSheet.create({
@@ -768,6 +592,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  unifiedList: {
+    gap: 16,
+  },
+  unifiedItem: {
+    width: '100%',
   },
   gridItem: {
     width: '47.8%',
