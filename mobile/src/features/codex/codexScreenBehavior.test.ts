@@ -29,3 +29,19 @@ test('codex screen renders unified SpeciesCard data with the shared codex card c
   assert.equal(mapperSource.includes('export function toSpeciesCard'), true);
   assert.equal(mapperSource.includes('export function getDefaultDescription'), true);
 });
+
+test('codex screen uses compact Bookk typography header and one-line filter chips', () => {
+  const source = readSource('src/features/codex/CodexScreen.tsx');
+
+  assert.equal(source.includes("from '../../theme/typography'"), true);
+  assert.equal(source.includes('내가 근처에서 발견한 도감들'), true);
+  assert.equal(source.includes('styles.leafMark'), false);
+  assert.equal(source.includes('fontSize: 24'), true);
+  assert.equal(source.includes('fontFamily: bookkFonts.light'), true);
+  assert.equal(source.includes('fontWeights.bold'), true);
+  assert.equal(source.includes('styles.filterBar'), true);
+  assert.equal(source.includes("backgroundColor: '#F0F0F0'"), true);
+  assert.equal(source.includes('styles.filterChipSelected'), true);
+  assert.equal(source.includes('LatestSortMenu'), true);
+  assert.equal(source.includes('최신순'), false);
+});

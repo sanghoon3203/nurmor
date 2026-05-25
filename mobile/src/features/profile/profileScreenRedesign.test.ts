@@ -37,3 +37,17 @@ test('profile screen uses only currently available profile and public discovery 
   assert.equal(source.includes('Firebase 연결'), false);
   assert.equal(source.includes('Spring API'), false);
 });
+
+test('profile screen renders an explorer certificate card with data-driven title and Bookk fonts', () => {
+  const source = readSource('src/features/profile/ProfileScreen.tsx');
+
+  assert.equal(source.includes("from '../../theme/typography'"), true);
+  assert.equal(source.includes('buildExplorerTitle'), true);
+  assert.equal(source.includes('탐험가 인증 카드'), true);
+  assert.equal(source.includes('styles.certificateCard'), true);
+  assert.equal(source.includes('reportCount'), true);
+  assert.equal(source.includes('discoveredSpeciesCount'), true);
+  assert.equal(source.includes('fontWeights.bold'), true);
+  assert.equal(source.includes('fontWeights.light'), true);
+  assert.equal(source.includes('마이페이지 🌱'), false);
+});

@@ -8,6 +8,7 @@ import { GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
 import { getMapDiscoveries, MapDiscoveryResponse, SpeciesDisplayGroup } from '../../services/api';
 import { colors, radii } from '../../theme/tokens';
+import { fontWeights } from '../../theme/typography';
 
 type FeedStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -240,10 +241,6 @@ function DiscoveryCard({ item }: { item: DiscoveryCard }) {
           </View>
         </View>
       </View>
-
-      <Pressable accessibilityRole="button" style={styles.moreButton}>
-        <Text style={styles.moreText}>•••</Text>
-      </Pressable>
     </View>
   );
 }
@@ -334,20 +331,21 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 34,
-    fontWeight: '900',
   },
   subtitle: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 15,
-    fontWeight: '800',
   },
   feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    marginBottom: -20,
   },
   loadingRow: {
     minHeight: 48,
@@ -359,14 +357,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.48)',
   },
   loadingText: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 13,
-    fontWeight: '900',
   },
   sectionTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 20,
-    fontWeight: '900',
   },
   card: {
     position: 'relative',
@@ -396,9 +394,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(109, 175, 69, 0.16)',
   },
   avatarText: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 18,
-    fontWeight: '900',
   },
   userCopy: {
     flex: 1,
@@ -410,24 +408,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   userName: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 15,
-    fontWeight: '900',
   },
   levelBadge: {
+    ...fontWeights.bold,
     overflow: 'hidden',
     borderRadius: radii.round,
     paddingHorizontal: 8,
     paddingVertical: 2,
     color: colors.moss,
     fontSize: 12,
-    fontWeight: '900',
     backgroundColor: 'rgba(185, 227, 127, 0.35)',
   },
   userMeta: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 12,
-    fontWeight: '700',
   },
   cardBodyRow: {
     flexDirection: 'row',
@@ -456,20 +454,20 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   cardTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 16,
-    fontWeight: '900',
   },
   scientific: {
+    ...fontWeights.light,
     color: 'rgba(97, 113, 95, 0.58)',
     fontSize: 12,
-    fontWeight: '300',
   },
   evidence: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '800',
   },
   locationRow: {
     flexDirection: 'row',
@@ -483,24 +481,9 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   locationName: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 12,
-    fontWeight: '800',
-  },
-  moreButton: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    width: 34,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreText: {
-    color: colors.muted,
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: 1,
   },
   noticeCard: {
     gap: 8,
@@ -511,14 +494,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDF8F2',
   },
   noticeTitle: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 16,
-    fontWeight: '900',
   },
   noticeBody: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 13,
     lineHeight: 20,
-    fontWeight: '700',
   },
 });

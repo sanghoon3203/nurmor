@@ -1,14 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
 import { FirebaseCodexEntry, FirebaseCommunityDiscovery, listCodexEntries, listCommunityDiscoveries } from '../../services/firebaseAtlasDb';
-import { colors, glass, radii } from '../../theme/tokens';
+import { colors, radii } from '../../theme/tokens';
+import { fontWeights } from '../../theme/typography';
 import { CodexFamily } from './codexViewModel';
-import { buildSpeciesPhotoGallery, SpeciesPhoto, SpeciesReference } from './codexDetailViewModel';
+import { buildSpeciesPhotoGallery, buildSpeciesShareSummary, SpeciesPhoto, SpeciesReference } from './codexDetailViewModel';
 
 const fallbackRegion = {
   latitude: 37.5665,
@@ -23,6 +25,7 @@ export function CodexDetailScreen() {
   const [remoteCodex, setRemoteCodex] = useState<FirebaseCodexEntry[]>([]);
   const [remoteDiscoveries, setRemoteDiscoveries] = useState<FirebaseCommunityDiscovery[]>([]);
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -77,6 +80,18 @@ export function CodexDetailScreen() {
   const displayPhotos = photos.length > 0 ? photos : fallbackPhotos(selected);
   const facts = factsForSpecies(selected);
 
+  async function handleShare() {
+    try {
+      await Share.share({
+        title: 'Atlas 도감 기록',
+        message: buildSpeciesShareSummary(selected),
+      });
+      setShareMessage(null);
+    } catch (error) {
+      setShareMessage(error instanceof Error ? error.message : '기록 공유를 열지 못했습니다.');
+    }
+  }
+
   return (
     <GradientScreen>
       <SafeAreaView style={styles.safeArea}>
@@ -87,9 +102,7 @@ export function CodexDetailScreen() {
                 <Text style={styles.topIcon}>‹</Text>
               </Pressable>
               <Text style={styles.topNumber}>{selected.displayNumber}</Text>
-              <Pressable accessibilityRole="button" style={styles.iconButton}>
-                <Text style={styles.moreIcon}>•••</Text>
-              </Pressable>
+              <View style={styles.iconButtonSpacer} />
             </View>
           </RevealView>
 
@@ -123,9 +136,14 @@ export function CodexDetailScreen() {
                 <View style={styles.plantAccentLeft} />
                 <View style={styles.plantAccentRight} />
                 {selected.imageUrl ? (
-                  <Image source={{ uri: selected.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+                  <View style={styles.heroImageOval}>
+                    <Image source={{ uri: selected.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+                    <BlurView intensity={22} tint="light" style={styles.heroImageBlur} />
+                  </View>
                 ) : (
-                  <Text style={styles.heroSymbol}>{symbolForSpecies(selected)}</Text>
+                  <BlurView intensity={24} tint="light" style={styles.heroSymbolOval}>
+                    <Text style={styles.heroSymbol}>{symbolForSpecies(selected)}</Text>
+                  </BlurView>
                 )}
                 <View style={styles.rockShadow} />
               </View>
@@ -192,20 +210,18 @@ export function CodexDetailScreen() {
                   <Text style={styles.infoTitle}>발견 날짜</Text>
                 </View>
                 <Text style={styles.dateValue}>{selected.date}</Text>
-                <Text style={styles.timeValue}>오후 04:32</Text>
+                <Text style={styles.timeValue}>기록 기준</Text>
               </View>
             </View>
           </RevealView>
 
           <RevealView delay={260}>
             <View style={styles.actionRow}>
-              <Pressable accessibilityRole="button" style={styles.shareButton}>
-                <Text style={styles.shareText}>⌘ 기록 공유하기</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" style={styles.saveButton}>
-                <Text style={styles.saveText}>▱ 보관함에 추가</Text>
+              <Pressable accessibilityRole="button" style={styles.shareButton} onPress={handleShare}>
+                <Text style={styles.shareText}>기록 공유하기</Text>
               </Pressable>
             </View>
+            {shareMessage ? <Text style={styles.shareMessage}>{shareMessage}</Text> : null}
           </RevealView>
         </ScrollView>
       </SafeAreaView>
@@ -246,6 +262,8 @@ type DetailParams = {
   categoryLabel: string;
   date: string;
   place: string;
+  description: string;
+  observationCount: number;
 };
 
 function selectedFromParams(params: ReturnType<typeof useLocalSearchParams>): SpeciesReference & DetailParams {
@@ -261,8 +279,16 @@ function selectedFromParams(params: ReturnType<typeof useLocalSearchParams>): Sp
     categoryLabel: stringParam(params.categoryLabel, '동물'),
     date: stringParam(params.date, '2024.04.18'),
     place: stringParam(params.place, '잠실 3동, 석촌호수'),
+    description: stringParam(params.description, ''),
+    observationCount: numberParam(params.observationCount, 1),
     imageUrl: stringParam(params.imageUrl, '') || null,
   };
+}
+
+function numberParam(value: unknown, fallback: number) {
+  const raw = stringParam(value, String(fallback));
+  const next = Number(raw);
+  return Number.isFinite(next) ? next : fallback;
 }
 
 function codexToSpeciesSource(entry: FirebaseCodexEntry): SpeciesReference {
@@ -319,22 +345,16 @@ function symbolForSpecies(entry: SpeciesReference) {
   return '🌿';
 }
 
-function factsForSpecies(entry: SpeciesReference) {
-  if (/수달|otter|lutra/i.test(`${entry.title} ${entry.scientificName ?? ''}`)) {
-    return [
-      { icon: '↕', label: '평균 크기', value: '60 - 90 cm' },
-      { icon: '▣', label: '평균 몸무게', value: '5 - 10 kg' },
-    ];
-  }
+function factsForSpecies(entry: SpeciesReference & Partial<DetailParams>) {
   return [
-    { icon: '↕', label: '관찰 크기', value: '현장 기록 기준' },
-    { icon: '▣', label: '관찰 신뢰도', value: 'AI 추정 + 사용자 확인' },
+    { icon: '↕', label: '누적 기록', value: `${'observationCount' in entry ? entry.observationCount : 1}회` },
+    { icon: '▣', label: '도감 기준', value: entry.scientificName ? '학명 확인' : '현장 기록' },
   ];
 }
 
 function descriptionForSpecies(entry: SpeciesReference) {
-  if (/수달|otter|lutra/i.test(`${entry.title} ${entry.scientificName ?? ''}`)) {
-    return '수달은 깨끗한 물이 흐르는 하천, 호수, 습지 등에 서식하는 포유류예요. 날렵한 몸과 물갈퀴가 달린 발로 물속에서 빠르게 헤엄치며, 물고기와 갑각류, 양서류 등을 주로 먹고 살아요. 경계심이 많고 활동 반경이 넓어 관찰 기록이 서식지 건강을 이해하는 데 도움이 됩니다.';
+  if ('description' in entry && typeof entry.description === 'string' && entry.description.trim().length > 0) {
+    return entry.description;
   }
   return `${entry.title} 관찰 기록은 같은 종의 사진과 함께 모아져요. 실제 위치는 정확 좌표 대신 셀 단위 지역으로만 표시해 서식지와 관찰자의 정보를 보호합니다.`;
 }
@@ -378,22 +398,20 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: 'rgba(255, 255, 255, 0.54)',
   },
+  iconButtonSpacer: {
+    width: 42,
+    height: 42,
+  },
   topIcon: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 38,
-    fontWeight: '700',
     lineHeight: 39,
   },
-  moreIcon: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
   topNumber: {
+    ...fontWeights.bold,
     color: colors.muted,
     fontSize: 13,
-    fontWeight: '900',
   },
   heroCard: {
     minHeight: 354,
@@ -419,30 +437,30 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   title: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 42,
-    fontWeight: '900',
     letterSpacing: 0,
   },
   leaf: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 24,
-    fontWeight: '900',
   },
   scientific: {
+    ...fontWeights.light,
     color: '#747a72',
     fontSize: 18,
     fontStyle: 'italic',
-    fontWeight: '700',
   },
   categoryBadge: {
+    ...fontWeights.bold,
     alignSelf: 'flex-start',
     overflow: 'hidden',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontSize: 13,
-    fontWeight: '900',
   },
   badgePlant: {
     backgroundColor: '#e5f5cf',
@@ -482,22 +500,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0eadc',
   },
   factIconText: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 19,
-    fontWeight: '900',
   },
   factCopy: {
     gap: 3,
   },
   factLabel: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 14,
-    fontWeight: '900',
   },
   factValue: {
+    ...fontWeights.bold,
     color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
   },
   heroArt: {
     position: 'absolute',
@@ -508,10 +526,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  heroImage: {
+  heroImageOval: {
     width: 210,
-    height: 188,
-    borderRadius: 26,
+    height: 232,
+    overflow: 'hidden',
+    borderRadius: 105,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: 'rgba(223, 241, 207, 0.52)',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageBlur: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.26,
+  },
+  heroSymbolOval: {
+    width: 210,
+    height: 232,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 105,
+    backgroundColor: 'rgba(223, 241, 207, 0.48)',
   },
   heroSymbol: {
     fontSize: 120,
@@ -553,20 +592,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionIcon: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 22,
-    fontWeight: '900',
   },
   sectionTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 20,
-    fontWeight: '900',
   },
   description: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 15,
     lineHeight: 27,
-    fontWeight: '800',
   },
   photoRail: {
     gap: 12,
@@ -595,15 +634,15 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   photoSource: {
+    ...fontWeights.bold,
     color: colors.muted,
     fontSize: 11,
-    fontWeight: '900',
     textAlign: 'center',
   },
   loadMessage: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 12,
-    fontWeight: '800',
   },
   audioCard: {
     minHeight: 78,
@@ -623,9 +662,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.moss,
   },
   playText: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 17,
-    fontWeight: '900',
   },
   waveform: {
     flex: 1,
@@ -640,9 +679,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.moss,
   },
   audioTime: {
+    ...fontWeights.bold,
     color: colors.moss,
     fontSize: 13,
-    fontWeight: '900',
   },
   infoGrid: {
     flexDirection: 'row',
@@ -672,19 +711,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0eadc',
   },
   infoIconText: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 18,
-    fontWeight: '900',
   },
   infoTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 17,
-    fontWeight: '900',
   },
   infoValue: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 14,
-    fontWeight: '800',
   },
   miniMap: {
     flex: 1,
@@ -728,16 +767,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   dateValue: {
+    ...fontWeights.bold,
     marginTop: 26,
     color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
     textAlign: 'center',
   },
   timeValue: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
     textAlign: 'center',
   },
   actionRow: {
@@ -754,23 +793,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.moss,
   },
   shareText: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 16,
-    fontWeight: '900',
   },
-  saveButton: {
-    flex: 1,
-    minHeight: 58,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: glass.hairline,
-    backgroundColor: 'rgba(255, 253, 244, 0.8)',
-  },
-  saveText: {
-    color: colors.moss,
-    fontSize: 16,
-    fontWeight: '900',
+  shareMessage: {
+    ...fontWeights.light,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

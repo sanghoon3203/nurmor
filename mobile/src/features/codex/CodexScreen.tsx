@@ -9,10 +9,10 @@ import { useAuth } from '../auth/AuthProvider';
 import { useObservationFlow } from '../observation/ObservationFlowProvider';
 import { FirebaseCodexEntry, listCodexEntries } from '../../services/firebaseAtlasDb';
 import { SpeciesCard, SpeciesDisplayGroup } from '../../types/species';
-import { colors, glass, radii } from '../../theme/tokens';
+import { colors, radii } from '../../theme/tokens';
+import { bookkFonts, fontWeights } from '../../theme/typography';
 import {
   CodexFamily,
-  CodexIcon,
   codexFilters,
   toDisplayNumber,
 } from './codexViewModel';
@@ -20,6 +20,7 @@ import { firebaseCodexToSpeciesCard, sampleCodexToSpeciesCard, toSpeciesCard } f
 import { SpeciesCodexCard } from './SpeciesCodexCard';
 
 type RemoteStatus = 'idle' | 'loading' | 'ready' | 'error';
+type SortMode = 'RECENT' | 'OLDEST';
 
 const sampleEntries: Array<{
   id: string;
@@ -46,6 +47,7 @@ export function CodexScreen() {
   const [remoteEntries, setRemoteEntries] = useState<FirebaseCodexEntry[]>([]);
   const [remoteStatus, setRemoteStatus] = useState<RemoteStatus>('idle');
   const [remoteMessage, setRemoteMessage] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('RECENT');
 
   useEffect(() => {
     let isMounted = true;
@@ -97,7 +99,7 @@ export function CodexScreen() {
     return [];
   }, [flow.state.codexEntries, remoteEntries]);
 
-  const filteredCards = useMemo(() => filterSpeciesCards(cards, filter), [cards, filter]);
+  const filteredCards = useMemo(() => sortSpeciesCards(filterSpeciesCards(cards, filter), sortMode), [cards, filter, sortMode]);
   const counts = useMemo(() => countByFamily(cards), [cards]);
   const selectedLabel = codexFilters.find((item) => item.value === filter)?.label ?? '전체';
   const hasLiveEntries = flow.state.codexEntries.length > 0 || remoteEntries.length > 0;
@@ -108,16 +110,13 @@ export function CodexScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <RevealView>
             <View style={styles.header}>
-              <View style={styles.titleBlock}>
-                <Text style={styles.title}>도감</Text>
-                <Text style={styles.leafMark}>☘</Text>
-              </View>
-              <Text style={styles.subtitle}>발견한 생명들을 모아보세요</Text>
+              <Text style={styles.title}>도감</Text>
+              <Text style={styles.subtitle}>내가 근처에서 발견한 도감들</Text>
             </View>
           </RevealView>
 
           <RevealView delay={70}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+            <View style={styles.filterBar}>
               {codexFilters.map((item) => {
                 const selected = filter === item.value;
                 return (
@@ -126,19 +125,15 @@ export function CodexScreen() {
                     accessibilityState={selected ? { selected: true } : {}}
                     key={item.value}
                     onPress={() => setFilter(item.value)}
-                    style={[styles.filterCard, selected ? styles.filterCardSelected : null]}
+                    style={({ pressed }) => [styles.filterChip, selected ? styles.filterChipSelected : null, pressed ? styles.filterChipPressed : null]}
                   >
-                    <View style={[styles.filterIconWrap, selected ? styles.filterIconWrapSelected : null]}>
-                      <IconMark icon={item.icon} selected={selected} />
-                    </View>
                     <Text style={[styles.filterLabel, selected ? styles.filterLabelSelected : null]} numberOfLines={1}>
-                      {item.label}
+                      {item.label} {counts[item.value]}
                     </Text>
-                    <Text style={[styles.filterCount, selected ? styles.filterCountSelected : null]}>{counts[item.value]}</Text>
                   </Pressable>
                 );
               })}
-            </ScrollView>
+            </View>
           </RevealView>
 
           <RevealView delay={110}>
@@ -147,13 +142,7 @@ export function CodexScreen() {
                 {selectedLabel} {filteredCards.length}종
               </Text>
               <View style={styles.toolbarGroup}>
-                <Pressable accessibilityRole="button" style={styles.sortButton}>
-                  <Text style={styles.sortText}>최신순</Text>
-                  <Text style={styles.sortChevron}>⌄</Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" style={styles.tuneButton}>
-                  <Text style={styles.tuneText}>≡</Text>
-                </Pressable>
+                <LatestSortMenu sortMode={sortMode} onChange={setSortMode} />
               </View>
             </View>
           </RevealView>
@@ -215,16 +204,33 @@ function openCodexDetail(entry: SpeciesCard) {
       date: formatSpeciesDate(entry.lastObservedAt),
       place: entry.regionName,
       imageUrl: entry.imageUrl ?? '',
+      description: entry.description,
+      observationCount: String(entry.observationCount),
     },
   });
 }
 
-function IconMark({ icon, selected, compact = false }: { icon: CodexIcon; selected: boolean; compact?: boolean }) {
-  const symbol = icon === 'leaf' ? '☘' : icon === 'paw' ? '●' : icon === 'fish' ? '●' : icon === 'bug' ? '✣' : '?';
+function LatestSortMenu({ sortMode, onChange }: { sortMode: SortMode; onChange: (mode: SortMode) => void }) {
   return (
-    <Text style={[compact ? styles.compactIcon : styles.iconText, selected ? styles.iconTextSelected : null]}>
-      {symbol}
-    </Text>
+    <View style={styles.sortMenu}>
+      {[
+        { value: 'RECENT' as const, label: '최근' },
+        { value: 'OLDEST' as const, label: '오래된' },
+      ].map((item) => {
+        const selected = sortMode === item.value;
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={selected ? { selected: true } : {}}
+            key={item.value}
+            onPress={() => onChange(item.value)}
+            style={({ pressed }) => [styles.sortChip, selected ? styles.sortChipSelected : null, pressed ? styles.filterChipPressed : null]}
+          >
+            <Text style={[styles.sortText, selected ? styles.sortTextSelected : null]}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -233,6 +239,20 @@ function filterSpeciesCards(cards: SpeciesCard[], filter: CodexFamily) {
     return cards;
   }
   return cards.filter((card) => familyFromDisplayGroup(card.displayGroup) === filter);
+}
+
+function sortSpeciesCards(cards: SpeciesCard[], sortMode: SortMode) {
+  const sorted = [...cards].sort((left, right) => observedTime(right) - observedTime(left));
+  return sortMode === 'RECENT' ? sorted : sorted.reverse();
+}
+
+function observedTime(card: SpeciesCard) {
+  const value = card.lastObservedAt ?? card.firstObservedAt;
+  if (!value) {
+    return 0;
+  }
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 
 function countByFamily(cards: SpeciesCard[]) {
@@ -278,7 +298,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 14,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingBottom: 126,
   },
   header: {
@@ -287,88 +307,56 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 18,
   },
-  titleBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
   title: {
+    fontFamily: bookkFonts.light,
     color: colors.moss,
-    fontSize: 38,
-    fontWeight: '900',
+    fontSize: 24,
     letterSpacing: 0,
   },
-  leafMark: {
-    color: colors.moss,
-    fontSize: 15,
-    fontWeight: '900',
-  },
   subtitle: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 15,
-    fontWeight: '800',
   },
-  filterRail: {
-    gap: 10,
-    paddingBottom: 22,
+  filterBar: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingBottom: 18,
   },
-  filterCard: {
-    width: 80,
-    minHeight: 86,
+  filterChip: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.large,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: 'rgba(22, 63, 45, 0.09)',
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    borderColor: 'rgba(22, 63, 45, 0.06)',
+    paddingHorizontal: 3,
+    backgroundColor: '#F0F0F0',
     shadowColor: colors.shadow,
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  filterCardSelected: {
+  filterChipSelected: {
     borderColor: 'rgba(76, 122, 63, 0.34)',
     backgroundColor: colors.moss,
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
   },
-  filterIconWrap: {
-    minHeight: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterIconWrapSelected: {
-    transform: [{ scale: 1.04 }],
-  },
-  iconText: {
-    color: colors.ink,
-    fontSize: 23,
-    fontWeight: '900',
-    lineHeight: 26,
-  },
-  compactIcon: {
-    color: colors.ink,
-    fontSize: 22,
-    fontWeight: '900',
-    lineHeight: 25,
-  },
-  iconTextSelected: {
-    color: colors.white,
+  filterChipPressed: {
+    transform: [{ translateY: 1 }, { scale: 0.98 }],
   },
   filterLabel: {
+    ...fontWeights.bold,
     color: colors.ink,
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 11,
   },
   filterLabelSelected: {
-    color: colors.white,
-  },
-  filterCount: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  filterCountSelected: {
     color: colors.white,
   },
   featuredCard: {
@@ -539,54 +527,43 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   sectionTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 16,
   },
   toolbarGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  sortButton: {
-    minHeight: 38,
+  sortMenu: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    borderRadius: radii.round,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.62)',
+    gap: 4,
+    borderRadius: 14,
+    padding: 3,
+    backgroundColor: '#F0F0F0',
+  },
+  sortChip: {
+    minHeight: 30,
+    justifyContent: 'center',
+    borderRadius: 11,
+    paddingHorizontal: 9,
+  },
+  sortChipSelected: {
+    backgroundColor: colors.white,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
   },
   sortText: {
+    ...fontWeights.bold,
     color: colors.ink,
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 12,
   },
-  sortChevron: {
-    color: colors.muted,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: -4,
-  },
-  tuneButton: {
-    width: 43,
-    height: 43,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  tuneText: {
-    color: colors.ink,
-    fontSize: 24,
-    fontWeight: '900',
-    transform: [{ rotate: '90deg' }],
+  sortTextSelected: {
+    color: colors.moss,
   },
   grid: {
     flexDirection: 'row',
@@ -761,15 +738,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.72)',
   },
   emptyTitle: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 18,
-    fontWeight: '900',
   },
   emptyBody: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 13,
     lineHeight: 20,
-    fontWeight: '700',
   },
   primaryButton: {
     minHeight: 48,
@@ -779,9 +756,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.leaf,
   },
   primaryButtonText: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 14,
-    fontWeight: '900',
   },
   previewNotice: {
     gap: 5,
@@ -793,14 +770,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 248, 232, 0.72)',
   },
   previewTitle: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 15,
-    fontWeight: '900',
   },
   previewBody: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '800',
   },
 });

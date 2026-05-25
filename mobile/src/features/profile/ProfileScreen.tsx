@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
+import { GlassCard, GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
 import {
   getRecentObservations,
@@ -15,6 +15,7 @@ import {
   UserStatsResponse,
 } from '../../services/api';
 import { colors, glass, radii } from '../../theme/tokens';
+import { fontWeights } from '../../theme/typography';
 
 type ReportStat = {
   label: string;
@@ -43,6 +44,7 @@ export function ProfileScreen() {
   const footprintStats = useMemo(() => buildFootprintStats(footprintCells), [footprintCells]);
   const recentDiscoveries = useMemo(() => recentObservations.slice(0, 5), [recentObservations]);
   const mainActivityCell = footprintStats[0]?.label ?? '공개한 기록 없음';
+  const explorerTitle = buildExplorerTitle(userStats);
   const reportStats: ReportStat[] = [
     { label: '보고 횟수', value: userStats?.reportCount ?? 0 },
     { label: '발견 생물', value: userStats?.discoveredSpeciesCount ?? 0, suffix: '종' },
@@ -139,13 +141,17 @@ export function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <RevealView>
             <View style={styles.header}>
-              <Text style={styles.title}>마이페이지 🌱</Text>
+              <Text style={styles.title}>마이페이지</Text>
               <Text style={styles.subtitle}>나의 탐험 기록을 확인해보세요.</Text>
             </View>
           </RevealView>
 
           <RevealView delay={80}>
-            <GlassPanel tone="green" contentStyle={styles.profilePanel}>
+            <View style={styles.certificateCard}>
+              <View style={styles.certificateHeader}>
+                <Text style={styles.certificateLabel}>탐험가 인증 카드</Text>
+                <Text style={styles.certificateSerial}>ATLAS-{auth.session?.localId?.slice(0, 5).toUpperCase() ?? 'GUEST'}</Text>
+              </View>
               <View style={styles.avatar}>
                 {profile?.avatarUrl ? (
                   <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
@@ -155,13 +161,14 @@ export function ProfileScreen() {
               </View>
               <View style={styles.profileCopy}>
                 <Text style={styles.profileName}>{displayName}</Text>
+                <Text style={styles.explorerTitle}>{explorerTitle}</Text>
                 <Text style={styles.profileMeta}>기여자 표시: {profile?.publicContributor ? '이름 표시' : '익명'}</Text>
                 <View style={styles.activityPill}>
                   <Text style={styles.activityLabel}>공개한 기록 기준</Text>
                   <Text style={styles.activityValue}>{mainActivityCell}</Text>
                 </View>
               </View>
-            </GlassPanel>
+            </View>
           </RevealView>
 
           <RevealView delay={140}>
@@ -226,6 +233,22 @@ function ReportBox({ stat }: { stat: ReportStat }) {
       <Text style={styles.reportLabel}>{stat.label}</Text>
     </View>
   );
+}
+
+export function buildExplorerTitle(stats: UserStatsResponse | null) {
+  const reportCount = stats?.reportCount ?? 0;
+  const speciesCount = stats?.discoveredSpeciesCount ?? 0;
+
+  if (reportCount >= 50 && speciesCount >= 20) {
+    return '마스터 생태 탐험가';
+  }
+  if (reportCount >= 20 || speciesCount >= 10) {
+    return '숙련된 도감 탐험가';
+  }
+  if (reportCount >= 5 || speciesCount >= 3) {
+    return '동네 생명 탐험가';
+  }
+  return '새싹 탐험가';
 }
 
 function FootprintHeatmap({ items }: { items: FootprintStat[] }) {
@@ -354,20 +377,49 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   title: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 34,
-    fontWeight: '900',
   },
   subtitle: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '700',
   },
-  profilePanel: {
+  certificateCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'hidden',
     gap: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.82)',
+    padding: 18,
+    paddingTop: 38,
+    backgroundColor: 'rgba(240, 246, 232, 0.88)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  certificateHeader: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    top: 13,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  certificateLabel: {
+    ...fontWeights.bold,
+    color: colors.canopy,
+    fontSize: 11,
+  },
+  certificateSerial: {
+    ...fontWeights.light,
+    color: colors.muted,
+    fontSize: 10,
   },
   avatar: {
     width: 112,
@@ -385,24 +437,29 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 42,
-    fontWeight: '900',
   },
   profileCopy: {
     flex: 1,
     gap: 9,
   },
   profileName: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 25,
-    fontWeight: '900',
+  },
+  explorerTitle: {
+    ...fontWeights.bold,
+    color: colors.canopy,
+    fontSize: 15,
   },
   profileMeta: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '800',
   },
   activityPill: {
     alignSelf: 'flex-start',
@@ -413,14 +470,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(253, 248, 242, 0.82)',
   },
   activityLabel: {
+    ...fontWeights.bold,
     color: colors.muted,
     fontSize: 10,
-    fontWeight: '900',
   },
   activityValue: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 13,
-    fontWeight: '900',
   },
   reportGrid: {
     flexDirection: 'row',
@@ -443,19 +500,19 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   reportValue: {
+    ...fontWeights.bold,
     color: colors.canopy,
     fontSize: 28,
-    fontWeight: '900',
   },
   reportSuffix: {
+    ...fontWeights.bold,
     color: colors.muted,
     fontSize: 13,
-    fontWeight: '900',
   },
   reportLabel: {
+    ...fontWeights.bold,
     color: colors.text,
     fontSize: 13,
-    fontWeight: '900',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -464,18 +521,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 20,
-    fontWeight: '900',
   },
   sectionSubtitle: {
+    ...fontWeights.light,
     marginTop: 4,
     color: colors.muted,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '800',
   },
   syncState: {
+    ...fontWeights.bold,
     minWidth: 62,
     overflow: 'hidden',
     borderRadius: radii.round,
@@ -483,7 +541,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     color: colors.canopy,
     fontSize: 11,
-    fontWeight: '900',
     textAlign: 'center',
     backgroundColor: 'rgba(223, 241, 207, 0.74)',
   },
@@ -503,14 +560,14 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   footprintLabel: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 13,
-    fontWeight: '900',
   },
   footprintCount: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 18,
-    fontWeight: '900',
   },
   legendRow: {
     flexDirection: 'row',
@@ -518,9 +575,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legendText: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 11,
-    fontWeight: '900',
   },
   legendTrack: {
     flex: 1,
@@ -558,19 +615,19 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   recentName: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 13,
-    fontWeight: '900',
   },
   recentLocation: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 11,
-    fontWeight: '800',
   },
   recentDate: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 10,
-    fontWeight: '800',
   },
   emptyState: {
     gap: 5,
@@ -579,25 +636,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.56)',
   },
   emptyTitle: {
+    ...fontWeights.bold,
     color: colors.ink,
     fontSize: 14,
-    fontWeight: '900',
   },
   emptyBody: {
+    ...fontWeights.light,
     color: colors.muted,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '800',
   },
   errorTitle: {
+    ...fontWeights.bold,
     color: colors.danger,
     fontSize: 16,
-    fontWeight: '900',
   },
   cardBody: {
+    ...fontWeights.light,
     color: colors.text,
     fontSize: 13,
     lineHeight: 20,
-    fontWeight: '700',
   },
 });

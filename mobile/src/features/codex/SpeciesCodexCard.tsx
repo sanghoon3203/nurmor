@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 
 import { SpeciesCard, SpeciesDisplayGroup } from '../../types/species';
 import { colors } from '../../theme/tokens';
+import { fontWeights } from '../../theme/typography';
 
 type SpeciesCodexCardProps = {
   data: SpeciesCard;
@@ -120,14 +121,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   displayName: {
+    ...fontWeights.bold,
     color: '#070707',
     fontSize: 16,
-    fontWeight: '600',
   },
   scientificName: {
+    ...fontWeights.light,
     color: '#b4b4b4',
     fontSize: 11,
-    fontWeight: '400',
   },
   imageContainer: {
     width: '100%',
@@ -177,22 +178,22 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   tagText: {
+    ...fontWeights.bold,
     color: colors.white,
     fontSize: 12,
-    fontWeight: '600',
   },
   regionName: {
+    ...fontWeights.bold,
     marginTop: 9,
     color: colors.white,
     fontSize: 16,
-    fontWeight: '600',
   },
   description: {
+    ...fontWeights.light,
     marginTop: 6,
     color: 'rgba(255, 255, 255, 0.88)',
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: '300',
   },
   followBtn: {
     position: 'absolute',
@@ -210,8 +211,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.26)',
   },
   followText: {
+    ...fontWeights.light,
     color: colors.white,
     fontSize: 12,
-    fontWeight: '500',
   },
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildSpeciesPhotoGallery, isSameSpecies, type SpeciesPhotoSource, type SpeciesReference } from './codexDetailViewModel';
+import { buildSpeciesPhotoGallery, buildSpeciesShareSummary, isSameSpecies, type SpeciesPhotoSource, type SpeciesReference } from './codexDetailViewModel';
 
 const otter: SpeciesReference = {
   id: 'otter-1',
@@ -65,4 +65,18 @@ test('buildSpeciesPhotoGallery orders selected and mine photos before public sam
       'community:https://example.test/public-1.jpg',
     ]
   );
+});
+
+test('buildSpeciesShareSummary creates data-driven copy for export or native sharing', () => {
+  const summary = buildSpeciesShareSummary({
+    id: 'otter-1',
+    title: '수달',
+    scientificName: 'Lutra lutra',
+    speciesKey: 'lutra-lutra',
+    imageUrl: 'https://example.test/my-otter.jpg',
+  });
+
+  assert.equal(summary.includes('수달'), true);
+  assert.equal(summary.includes('Lutra lutra'), true);
+  assert.equal(summary.includes('Atlas 도감 기록'), true);
 });

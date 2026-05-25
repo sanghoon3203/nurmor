@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js .tmp-tests/src/features/launch/*.test.js .tmp-tests/src/features/brand/*.test.js .tmp-tests/src/features/atlas/*.test.js .tmp-tests/src/features/auth/*.test.js .tmp-tests/src/features/map/*.test.js .tmp-tests/src/features/codex/*.test.js .tmp-tests/src/features/capture/*.test.js .tmp-tests/src/features/community/*.test.js .tmp-tests/src/features/profile/*.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test .tmp-tests/src/services/*.test.js .tmp-tests/src/theme/*.test.js .tmp-tests/src/features/launch/*.test.js .tmp-tests/src/features/brand/*.test.js .tmp-tests/src/features/atlas/*.test.js .tmp-tests/src/features/auth/*.test.js .tmp-tests/src/features/map/*.test.js .tmp-tests/src/features/codex/*.test.js .tmp-tests/src/features/capture/*.test.js .tmp-tests/src/features/community/*.test.js .tmp-tests/src/features/profile/*.test.js",
     "typecheck": "tsc --noEmit",
     "expo:check": "expo install --check"
   },

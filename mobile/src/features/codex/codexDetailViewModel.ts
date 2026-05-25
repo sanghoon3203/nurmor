@@ -61,6 +61,11 @@ export function buildSpeciesPhotoGallery({
   return gallery;
 }
 
+export function buildSpeciesShareSummary(reference: SpeciesReference) {
+  const scientificName = reference.scientificName ? `\n학명: ${reference.scientificName}` : '';
+  return `Atlas 도감 기록\n${reference.title}${scientificName}`;
+}
+
 function normalizeIdentifier(value?: string | null) {
   return value?.trim().toLowerCase().replace(/\s+/g, ' ') ?? '';
 }

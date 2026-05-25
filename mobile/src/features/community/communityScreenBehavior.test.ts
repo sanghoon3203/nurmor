@@ -24,10 +24,22 @@ test('community cards use photo-led card news layout and scroll-linked reveal mo
   assert.equal(source.includes('styles.discoveryPhoto'), true);
   assert.equal(source.includes('styles.userRow'), true);
   assert.equal(source.includes('fontSize: 16'), true);
-  assert.equal(source.includes("fontWeight: '900'"), true);
+  assert.equal(source.includes('fontWeights.bold'), true);
   assert.equal(source.includes('fontSize: 12'), true);
-  assert.equal(source.includes("fontWeight: '300'"), true);
+  assert.equal(source.includes('fontWeights.light'), true);
   assert.equal(source.includes('Animated.ScrollView'), true);
   assert.equal(source.includes('CardNewsReveal'), true);
   assert.equal(source.includes('scrollY'), true);
+});
+
+test('community screen removes card overflow menu and tightens recent discovery spacing with Bookk fonts', () => {
+  const source = readFileSync(join(projectRoot, 'src/features/community/CommunityScreen.tsx'), 'utf8');
+
+  assert.equal(source.includes("from '../../theme/typography'"), true);
+  assert.equal(source.includes('styles.moreButton'), false);
+  assert.equal(source.includes('styles.moreText'), false);
+  assert.equal(source.includes('•••'), false);
+  assert.equal(source.includes('fontWeights.bold'), true);
+  assert.equal(source.includes('fontWeights.light'), true);
+  assert.equal(source.includes('marginBottom: -20'), true);
 });

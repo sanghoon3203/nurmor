@@ -30,6 +30,8 @@
     "src/features/launch/launchFlow.test.ts",
     "src/features/map/mapViewRedesign.test.ts",
     "src/features/profile/profileScreenRedesign.test.ts",
+    "src/theme/typography.ts",
+    "src/theme/typography.test.ts",
     "src/services/api.ts",
     "src/services/api.test.ts",
     "src/services/firebaseAuthRest.ts",
