@@ -13,10 +13,10 @@
 <br />
 <div align="center">
   <a href="https://github.com/sanghoon3203/atlas">
-    <img src="mobile/assets/icon.png" alt="Atlas Logo" width="96" height="96">
+    <img src="logo_sum.svg" alt="Atlas Logo" width="96" height="96">
   </a>
 
-  <h1 align="center">Atlas</h1>
+  <h1 align="center">Nurmor</h1>
 
   <p align="center">
     사진과 소리로 주변 생명을 기록하고, 기록을 지도 셀·도감·커뮤니티로 연결하는 AI 기반 생태 탐색 앱
