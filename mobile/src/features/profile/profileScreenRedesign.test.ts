@@ -14,9 +14,15 @@ test('profile screen uses only currently available profile and public discovery 
 
   assert.equal(source.includes('마이페이지'), true);
   assert.equal(source.includes('나의 탐험 기록을 확인해보세요.'), true);
-  assert.equal(source.includes('listCommunityDiscoveries'), true);
+  assert.equal(source.includes('getUserProfile'), true);
+  assert.equal(source.includes('getUserStats'), true);
+  assert.equal(source.includes('getUserFootprints'), true);
+  assert.equal(source.includes('getRecentObservations'), true);
+  assert.equal(source.includes('listCommunityDiscoveries'), false);
   assert.equal(source.includes('buildFootprintStats'), true);
   assert.equal(source.includes('RecentDiscoveryStrip'), true);
+  assert.equal(source.includes('UserFootprintCell'), true);
+  assert.equal(source.includes('intensity'), true);
   assert.equal(source.includes('보고 횟수'), true);
   assert.equal(source.includes('발견 생물'), true);
   assert.equal(source.includes('업적 달성'), true);

@@ -33,9 +33,8 @@ Atlas는 사용자가 사진이나 소리로 생명을 기록하고, 그 기록�
 - Firebase Auth REST 로그인
 - Firebase Storage 업로드
 - Java Atlas API를 통한 관찰 기록, 분석, 심기 흐름
-- Java Atlas API를 통한 지도 셀, 지도 마커, 커뮤니티 발견 조회
+- Java Atlas API를 통한 지도 깃발 마커, 생태보고서, 커뮤니티 발견 조회
 - 일부 화면의 기존 Firestore 기반 데이터 조회 유지
-  - 프로필 일부
   - 도감 목록 일부
 
 ## 기술 스택
@@ -367,6 +366,7 @@ GET /api/me
 PUT /api/me
 GET /api/me/stats
 GET /api/me/recent-observations
+GET /api/me/footprints
 ```
 
 ## 데이터 흐름

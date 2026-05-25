@@ -17,6 +17,8 @@ public interface ObservationRecordRepository extends JpaRepository<ObservationRe
 
     List<ObservationRecord> findTop10ByUserIdOrderByCapturedAtDesc(UUID userId);
 
+    List<ObservationRecord> findByUserIdAndStatus(UUID userId, ObservationStatus status);
+
     List<ObservationRecord> findByHabitatCellIdAndStatus(UUID habitatCellId, ObservationStatus status);
 
     @Query("""

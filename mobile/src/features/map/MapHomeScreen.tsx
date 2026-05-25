@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
-import MapView, { Marker, Polygon, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthProvider';
@@ -534,24 +534,13 @@ export function MapHomeScreen() {
         mapType="standard"
       >
         {habitatCells.map((cell) => (
-          <Polygon
-            key={cell.id}
-            coordinates={cell.coordinates}
-            fillColor={selectedCell?.id === cell.id ? 'rgba(184, 218, 95, 0.72)' : cell.fillColor}
-            strokeColor={selectedCell?.id === cell.id ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.84)'}
-            strokeWidth={selectedCell?.id === cell.id ? 4 : 3}
-            tappable
-            onPress={() => toggleCellReport(cell)}
-          />
-        ))}
-        {habitatCells.map((cell) => (
           <Marker
-            key={`${cell.id}-label`}
+            key={`${cell.id}-flag`}
             coordinate={{ latitude: cell.centerLat, longitude: cell.centerLng }}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor={{ x: 0.5, y: 0.95 }}
             onPress={() => toggleCellReport(cell)}
           >
-            <CellLabelMarker label={cell.label} selected={selectedCell?.id === cell.id} />
+            <HabitatFlagMarker label={cell.label} score={cell.bloomScore} selected={selectedCell?.id === cell.id} />
           </Marker>
         ))}
         {discoveries.map((discovery) => (
@@ -622,10 +611,15 @@ function DiscoveryMarker({ discovery, selected }: { discovery: MapDiscovery; sel
   );
 }
 
-function CellLabelMarker({ label, selected }: { label: string; selected: boolean }) {
+function HabitatFlagMarker({ label, score, selected }: { label: string; score: number; selected: boolean }) {
   return (
-    <View style={[styles.cellLabelMarker, selected ? styles.cellLabelMarkerSelected : null]}>
-      <Text style={[styles.cellLabelText, selected ? styles.cellLabelTextSelected : null]}>{label}</Text>
+    <View style={[styles.flagMarker, selected ? styles.flagMarkerSelected : null]}>
+      <View style={[styles.flagIcon, score >= 80 ? styles.flagIconStrong : null]}>
+        <Text style={styles.flagSymbol}>⚑</Text>
+      </View>
+      <Text style={[styles.flagLabel, selected ? styles.flagLabelSelected : null]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -915,26 +909,53 @@ const styles = StyleSheet.create({
   discoveryEmoji: {
     fontSize: 24,
   },
-  cellLabelMarker: {
-    minWidth: 70,
-    minHeight: 32,
+  flagMarker: {
+    minWidth: 82,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    gap: 3,
   },
-  cellLabelMarkerSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  flagMarkerSelected: {
+    transform: [{ scale: 1.08 }],
   },
-  cellLabelText: {
+  flagIcon: {
+    width: 38,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(70, 121, 56, 0.94)',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  flagIconStrong: {
+    backgroundColor: 'rgba(99, 150, 37, 0.98)',
+  },
+  flagSymbol: {
+    color: colors.white,
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 29,
+  },
+  flagLabel: {
+    maxWidth: 96,
+    overflow: 'hidden',
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     color: colors.text,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '900',
     textAlign: 'center',
+    backgroundColor: 'rgba(255, 253, 244, 0.88)',
   },
-  cellLabelTextSelected: {
+  flagLabelSelected: {
     color: colors.canopy,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
   },
   discoveryCardAnchor: {
     position: 'absolute',
@@ -1059,7 +1080,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 108,
-    maxHeight: '62%',
+    height: '76%',
     overflow: 'hidden',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

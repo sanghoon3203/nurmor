@@ -149,6 +149,42 @@ export type HabitatCellReport = {
   recentDiscoveries: MapDiscoveryResponse[];
 };
 
+export type UserProfileResponse = {
+  userId: string;
+  email?: string | null;
+  displayName: string;
+  avatarUrl?: string | null;
+  publicContributor: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UserStatsResponse = {
+  reportCount: number;
+  discoveredSpeciesCount: number;
+  plantedObservationCount: number;
+  achievementCount: number;
+};
+
+export type RecentObservationResponse = {
+  observationId: string;
+  habitatCellId: string;
+  displayName: string;
+  status: string;
+  publicLat: number;
+  publicLng: number;
+  capturedAt: string;
+};
+
+export type UserFootprintCell = {
+  habitatCellId: string;
+  regionName: string;
+  centerLat: number;
+  centerLng: number;
+  reportCount: number;
+  intensity: number;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -179,6 +215,22 @@ async function requestJson<T>(path: string, idToken?: string, init?: RequestInit
 
 export function getHealth() {
   return requestJson<HealthResponse>('/actuator/health');
+}
+
+export function getUserProfile(idToken: string) {
+  return requestJson<UserProfileResponse>('/api/me', idToken);
+}
+
+export function getUserStats(idToken: string) {
+  return requestJson<UserStatsResponse>('/api/me/stats', idToken);
+}
+
+export function getRecentObservations(idToken: string) {
+  return requestJson<RecentObservationResponse[]>('/api/me/recent-observations', idToken);
+}
+
+export function getUserFootprints(idToken: string) {
+  return requestJson<UserFootprintCell[]>('/api/me/footprints', idToken);
 }
 
 export function getNearbyHabitatCells(idToken: string, query?: NearbyHabitatCellQuery) {

@@ -9,6 +9,10 @@ import {
   getHabitatCellReport,
   getMapDiscoveries,
   getNearbyHabitatCells,
+  getRecentObservations,
+  getUserFootprints,
+  getUserProfile,
+  getUserStats,
   plantObservation,
   registerMediaAsset,
 } from './api';
@@ -155,6 +159,32 @@ test('map discovery and habitat report clients call Java API contracts', async (
     Accept: 'application/json',
     Authorization: 'Bearer token-123',
   });
+});
+
+test('profile clients call Java API contracts for unified profile data', async () => {
+  const paths: string[] = [];
+  global.fetch = async (url, init) => {
+    paths.push(`${init?.method ?? 'GET'} ${String(url).replace('http://atlas.test', '')}`);
+    if (String(url).includes('/stats')) {
+      return jsonResponse({ reportCount: 1, discoveredSpeciesCount: 1, plantedObservationCount: 1, achievementCount: 1 });
+    }
+    if (String(url).includes('/recent-observations') || String(url).includes('/footprints')) {
+      return jsonResponse([]);
+    }
+    return jsonResponse({ userId: 'user-1', displayName: 'Atlas 탐험가', publicContributor: false });
+  };
+
+  await getUserProfile('token-123');
+  await getUserStats('token-123');
+  await getRecentObservations('token-123');
+  await getUserFootprints('token-123');
+
+  assert.deepEqual(paths, [
+    'GET /api/me',
+    'GET /api/me/stats',
+    'GET /api/me/recent-observations',
+    'GET /api/me/footprints',
+  ]);
 });
 
 function jsonResponse(body: unknown): Response {

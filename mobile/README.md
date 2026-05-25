@@ -30,9 +30,9 @@ Atlas Mobile은 Expo와 React Native로 만든 Atlas 생태 탐색 앱입니다.
 ### 지도
 
 - 현재 위치 기반 지도
-- 주변 habitat cell polygon 표시
+- 주변 habitat cell을 깃발 마커로 표시
 - 지도 마커 표시
-- 셀 선택 시 하단 생태보고서 토글 패널 표시
+- 깃발 선택 시 세로로 넓은 생태보고서 토글 패널 표시
 - Java API 사용
   - `GET /api/habitat-cells/nearby`
   - `GET /api/map/discoveries`
@@ -67,7 +67,11 @@ Atlas Mobile은 Expo와 React Native로 만든 Atlas 생태 탐색 앱입니다.
 - 업적 달성
 - 탐험 지역
 - 발자국 통계
-- 현재 일부 데이터는 Firestore 기반 MVP 흐름을 유지합니다.
+- Java API 사용
+  - `GET /api/me`
+  - `GET /api/me/stats`
+  - `GET /api/me/recent-observations`
+  - `GET /api/me/footprints`
 
 ## 앱 식별자
 
@@ -226,7 +230,7 @@ EXPO_PUBLIC_ATLAS_API_BASE_URL=http://<Mac-LAN-IP>:8080
 
 ```text
 GET /api/habitat-cells/nearby
-  -> 지역 셀 polygon, 중심 좌표, 생태 점수
+  -> 지역 깃발 마커, 중심 좌표, 생태 점수
 
 GET /api/map/discoveries
   -> 지도 마커

@@ -86,6 +86,24 @@ class MobileBackendContractIntegrationTest {
         assertThat(recentItem.containsKey("publicLat")).isTrue();
         assertThat(recentItem.containsKey("publicLng")).isTrue();
 
+        ResponseEntity<List> footprints = restTemplate.exchange(
+            "/api/me/footprints",
+            HttpMethod.GET,
+            request("mobile-feed-user"),
+            List.class
+        );
+        assertThat(footprints.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(footprints.getBody()).hasSize(1);
+        Map<?, ?> footprintItem = (Map<?, ?>) footprints.getBody().getFirst();
+        assertThat(footprintItem).containsKeys(
+            "habitatCellId",
+            "regionName",
+            "centerLat",
+            "centerLng",
+            "reportCount",
+            "intensity"
+        );
+
         ResponseEntity<List> cells = restTemplate.exchange(
             "/api/habitat-cells/nearby?lat=37.5665&lng=126.9780&radiusKm=5",
             HttpMethod.GET,

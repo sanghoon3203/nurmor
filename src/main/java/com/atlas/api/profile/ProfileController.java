@@ -41,6 +41,11 @@ public class ProfileController {
         return profileService.recentObservations(user(authentication));
     }
 
+    @GetMapping("/footprints")
+    public List<UserFootprintCellResponse> footprints(Authentication authentication) {
+        return profileService.footprints(user(authentication));
+    }
+
     private static AuthenticatedUser user(Authentication authentication) {
         return (AuthenticatedUser) authentication.getPrincipal();
     }

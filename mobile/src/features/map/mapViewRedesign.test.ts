@@ -9,15 +9,17 @@ function readSource(path: string) {
   return readFileSync(join(projectRoot, path), 'utf8');
 }
 
-test('map view uses discovery emoji markers and habitat cell polygons', () => {
+test('map view uses flag markers for habitat reports instead of cell polygons', () => {
   const source = readSource('src/features/map/MapHomeScreen.tsx');
 
   assert.equal(source.includes('getMapDiscoveries'), true);
   assert.equal(source.includes('getNearbyHabitatCells'), true);
   assert.equal(source.includes('getHabitatCellReport'), true);
+  assert.equal(source.includes('HabitatFlagMarker'), true);
   assert.equal(source.includes('DiscoveryMarker'), true);
   assert.equal(source.includes('emojiForDiscovery'), true);
-  assert.equal(source.includes('Polygon'), true);
+  assert.equal(source.includes('Polygon'), false);
+  assert.equal(source.includes('CellLabelMarker'), false);
   assert.equal(source.includes('toMapHabitatCells'), true);
 });
 
@@ -33,6 +35,8 @@ test('map view opens an ecology report as a vertical toggle panel', () => {
   assert.equal(source.includes('outputRange: [94, 0]'), true);
   assert.equal(source.includes('useSafeAreaInsets'), true);
   assert.equal(source.includes('bottom: Math.max(insets.bottom + 86, 108)'), true);
+  assert.equal(source.includes("height: '76%'"), true);
+  assert.equal(source.includes("maxHeight: '62%'"), false);
   assert.equal(source.includes('PanResponder'), true);
   assert.equal(source.includes('reportHandleResponder'), true);
   assert.equal(source.includes('gesture.dy > 36'), true);

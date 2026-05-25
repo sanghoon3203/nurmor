@@ -5,11 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard, GlassPanel, GradientScreen, RevealView } from '../atlas/glass';
 import { useAuth } from '../auth/AuthProvider';
 import {
-  FirebaseCommunityDiscovery,
-  FirebaseUserProfile,
-  getOrCreateUserProfile,
-  listCommunityDiscoveries,
-} from '../../services/firebaseAtlasDb';
+  getRecentObservations,
+  getUserFootprints,
+  getUserProfile,
+  getUserStats,
+  RecentObservationResponse,
+  UserFootprintCell,
+  UserProfileResponse,
+  UserStatsResponse,
+} from '../../services/api';
 import { colors, glass, radii } from '../../theme/tokens';
 
 type ReportStat = {
@@ -19,37 +23,30 @@ type ReportStat = {
 };
 
 type FootprintStat = {
-  cellKey: string;
+  habitatCellId: string;
   label: string;
   reportCount: number;
+  intensity: number;
   color: string;
-};
-
-const publicDiscoveryQuery = {
-  latitude: 37.5665,
-  longitude: 126.978,
-  radiusKm: 20000,
 };
 
 export function ProfileScreen() {
   const auth = useAuth();
-  const [profile, setProfile] = useState<FirebaseUserProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [userStats, setUserStats] = useState<UserStatsResponse | null>(null);
   const [profileStatus, setProfileStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [communityDiscoveries, setCommunityDiscoveries] = useState<FirebaseCommunityDiscovery[]>([]);
+  const [footprintCells, setFootprintCells] = useState<UserFootprintCell[]>([]);
+  const [recentObservations, setRecentObservations] = useState<RecentObservationResponse[]>([]);
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const displayName = profile?.displayName ?? (auth.status === 'authenticated' ? 'Atlas 탐험가' : '로그인 확인 중');
-  const userDiscoveries = useMemo(
-    () => communityDiscoveries.filter((discovery) => discovery.userId === auth.session?.localId),
-    [auth.session?.localId, communityDiscoveries]
-  );
-  const footprintStats = useMemo(() => buildFootprintStats(userDiscoveries), [userDiscoveries]);
-  const recentDiscoveries = useMemo(() => userDiscoveries.slice(0, 5), [userDiscoveries]);
+  const footprintStats = useMemo(() => buildFootprintStats(footprintCells), [footprintCells]);
+  const recentDiscoveries = useMemo(() => recentObservations.slice(0, 5), [recentObservations]);
   const mainActivityCell = footprintStats[0]?.label ?? '공개한 기록 없음';
   const reportStats: ReportStat[] = [
-    { label: '보고 횟수', value: profile?.reportCount ?? 0 },
-    { label: '발견 생물', value: profile?.speciesCount ?? 0, suffix: '종' },
-    { label: '업적 달성', value: profile?.achievementCount ?? 0, suffix: '개' },
+    { label: '보고 횟수', value: userStats?.reportCount ?? 0 },
+    { label: '발견 생물', value: userStats?.discoveredSpeciesCount ?? 0, suffix: '종' },
+    { label: '업적 달성', value: userStats?.achievementCount ?? 0, suffix: '개' },
     { label: '탐험한 지역', value: footprintStats.length, suffix: '곳' },
   ];
 
@@ -59,6 +56,7 @@ export function ProfileScreen() {
     async function loadProfile() {
       if (!auth.session?.idToken || !auth.session.localId) {
         setProfile(null);
+        setUserStats(null);
         setProfileStatus('idle');
         setProfileMessage(null);
         return;
@@ -67,23 +65,24 @@ export function ProfileScreen() {
       setProfileStatus('loading');
       setProfileMessage(null);
       try {
-        const nextProfile = await getOrCreateUserProfile(auth.session.idToken, {
-          uid: auth.session.localId,
-          email: null,
-          displayName: null,
-        });
+        const [nextProfile, nextStats] = await Promise.all([
+          getUserProfile(auth.session.idToken),
+          getUserStats(auth.session.idToken),
+        ]);
         if (!isMounted) {
           return;
         }
         setProfile(nextProfile);
+        setUserStats(nextStats);
         setProfileStatus('ready');
       } catch (error) {
         if (!isMounted) {
           return;
         }
         setProfile(null);
+        setUserStats(null);
         setProfileStatus('error');
-        setProfileMessage(error instanceof Error ? error.message : 'Firestore 프로필을 불러오지 못했습니다.');
+        setProfileMessage(error instanceof Error ? error.message : 'Atlas 프로필을 불러오지 못했습니다.');
       }
     }
 
@@ -99,24 +98,30 @@ export function ProfileScreen() {
 
     async function loadDiscoveries() {
       if (!auth.session?.idToken || !auth.session.localId) {
-        setCommunityDiscoveries([]);
+        setFootprintCells([]);
+        setRecentObservations([]);
         setDiscoveryStatus('idle');
         return;
       }
 
       setDiscoveryStatus('loading');
       try {
-        const discoveries = await listCommunityDiscoveries(auth.session.idToken, publicDiscoveryQuery);
+        const [footprints, recent] = await Promise.all([
+          getUserFootprints(auth.session.idToken),
+          getRecentObservations(auth.session.idToken),
+        ]);
         if (!isMounted) {
           return;
         }
-        setCommunityDiscoveries(discoveries);
+        setFootprintCells(footprints);
+        setRecentObservations(recent);
         setDiscoveryStatus('ready');
       } catch {
         if (!isMounted) {
           return;
         }
-        setCommunityDiscoveries([]);
+        setFootprintCells([]);
+        setRecentObservations([]);
         setDiscoveryStatus('error');
       }
     }
@@ -237,7 +242,7 @@ function FootprintHeatmap({ items }: { items: FootprintStat[] }) {
     <View style={styles.footprintWrap}>
       <View style={styles.footprintGrid}>
         {items.map((item) => (
-          <View key={item.cellKey} style={[styles.footprintCell, { backgroundColor: item.color }]}>
+          <View key={item.habitatCellId} style={[styles.footprintCell, { backgroundColor: item.color }]}>
             <Text style={styles.footprintLabel}>{item.label}</Text>
             <Text style={styles.footprintCount}>{item.reportCount}회</Text>
           </View>
@@ -258,7 +263,7 @@ function FootprintHeatmap({ items }: { items: FootprintStat[] }) {
   );
 }
 
-function RecentDiscoveryStrip({ discoveries }: { discoveries: FirebaseCommunityDiscovery[] }) {
+function RecentDiscoveryStrip({ discoveries }: { discoveries: RecentObservationResponse[] }) {
   if (discoveries.length === 0) {
     return (
       <View style={styles.emptyState}>
@@ -271,40 +276,30 @@ function RecentDiscoveryStrip({ discoveries }: { discoveries: FirebaseCommunityD
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentStrip}>
       {discoveries.map((discovery) => (
-        <View key={discovery.id} style={styles.recentItem}>
+        <View key={discovery.observationId} style={styles.recentItem}>
           <View style={styles.recentThumb}>
-            {discovery.imageUrl ? (
-              <Image source={{ uri: discovery.imageUrl }} style={styles.recentImage} />
-            ) : (
-              <Text style={styles.recentFallback}>{emojiForDiscovery(discovery)}</Text>
-            )}
+            <Text style={styles.recentFallback}>{emojiForDiscovery(discovery)}</Text>
           </View>
           <Text numberOfLines={1} style={styles.recentName}>
             {discovery.displayName}
           </Text>
           <Text numberOfLines={1} style={styles.recentLocation}>
-            {cellKeyLabel(discovery.cellKey)}
+            {cellKeyLabel(discovery.habitatCellId)}
           </Text>
-          <Text style={styles.recentDate}>{shortDate(discovery.createdAt)}</Text>
+          <Text style={styles.recentDate}>{shortDate(discovery.capturedAt)}</Text>
         </View>
       ))}
     </ScrollView>
   );
 }
 
-function buildFootprintStats(discoveries: FirebaseCommunityDiscovery[]): FootprintStat[] {
-  const counts = new Map<string, number>();
-  discoveries.forEach((discovery) => {
-    counts.set(discovery.cellKey, (counts.get(discovery.cellKey) ?? 0) + 1);
-  });
-
-  const entries = [...counts.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8);
-  const maxCount = Math.max(1, ...entries.map(([, count]) => count));
-  return entries.map(([cellKey, reportCount]) => ({
-    cellKey,
-    label: cellKeyLabel(cellKey),
-    reportCount,
-    color: colorForFootprintIntensity(reportCount / maxCount),
+function buildFootprintStats(footprints: UserFootprintCell[]): FootprintStat[] {
+  return footprints.slice(0, 8).map((footprint) => ({
+    habitatCellId: footprint.habitatCellId,
+    label: footprint.regionName,
+    reportCount: footprint.reportCount,
+    intensity: footprint.intensity,
+    color: colorForFootprintIntensity(footprint.intensity),
   }));
 }
 
@@ -313,12 +308,11 @@ function colorForFootprintIntensity(value: number) {
   return `rgba(22, 63, 45, ${alpha.toFixed(2)})`;
 }
 
-function cellKeyLabel(cellKey: string) {
-  const [, lat, lng] = cellKey.split(':');
-  if (!lat || !lng) {
-    return cellKey;
+function cellKeyLabel(habitatCellId: string) {
+  if (habitatCellId.length <= 8) {
+    return habitatCellId;
   }
-  return `셀 ${lat}/${lng}`;
+  return `지역 ${habitatCellId.slice(0, 8)}`;
 }
 
 function shortDate(value: string | null) {
@@ -335,14 +329,13 @@ function shortDate(value: string | null) {
   return `${year}.${month}.${day}`;
 }
 
-function emojiForDiscovery(discovery: FirebaseCommunityDiscovery) {
-  const source = `${discovery.displayName} ${discovery.scientificName ?? ''}`.toLowerCase();
+function emojiForDiscovery(discovery: RecentObservationResponse) {
+  const source = discovery.displayName.toLowerCase();
   if (/새|참새|bird|sparrow/.test(source)) return '🐦';
   if (/개구리|frog/.test(source)) return '🐸';
   if (/나비|butterfly/.test(source)) return '🦋';
   if (/곤충|벌레|beetle|insect/.test(source)) return '🐞';
-  if (discovery.category === 'PLANT') return '🌿';
-  if (discovery.category === 'ANIMAL') return '🐾';
+  if (/꽃|풀|나무|식물/.test(source)) return '🌿';
   return '✨';
 }
 
