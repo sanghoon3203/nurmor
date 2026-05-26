@@ -487,58 +487,10 @@ eas build --platform ios --profile production
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- TROUBLESHOOTING -->
-## Troubleshooting
-
-### 모바일에서 로컬 API가 연결되지 않음
-
-실기기에서는 `localhost`가 개발 PC가 아니라 기기 자신을 가리킵니다.
-
-```env
-EXPO_PUBLIC_ATLAS_API_BASE_URL=http://<개발PC_LAN_IP>:8080
-```
-
-### 401 Unauthorized
-
-- Bearer 토큰이 있는지 확인합니다.
-- 로컬 API 테스트에서는 임의 토큰을 사용할 수 있습니다.
-
-```sh
-curl -H "Authorization: Bearer local-user"   "http://localhost:8080/api/habitat-cells/nearby"
-```
-
-### 판정 화면에서 GIF만 계속 보임
-
-마지막 커밋 이후 분석 화면은 후보가 없으면 로딩 GIF를 보여줍니다. 백엔드 Gemini 분석이 실패하면 후보가 표시되지 않을 수 있습니다.
-
-확인할 항목:
-
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- Firebase Storage object path
-- 백엔드 `/api/observations/{id}/analyze` 응답
-- 서버 로그의 `Gemini request failed` 또는 `Gemini structured response parsing failed`
-
-개발 중에는 임시 후보 fallback을 켜서 발표 흐름이 끊기지 않게 만들 수 있습니다.
-
-### 지도 또는 커뮤니티가 비어 있음
-
-- 기록 생성 후 후보 선택과 `plant`까지 완료해야 합니다.
-- `PRIVATE` 기록은 커뮤니티/지도 공개 발견 목록에 나오지 않습니다.
-- 주변 반경 `radiusKm`가 너무 작지 않은지 확인합니다.
-
-### Maven 명령이 없음
-
-```sh
-brew install maven
-```
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 <!-- TEAM -->
 ## Team
 
-Atlas는 생태 참여 경험을 높이기 위한 팀 프로젝트입니다.
+Nurmor는 생태 참여 경험을 높이기 위한 팀 프로젝트입니다.
 
 - GitHub Repository: [sanghoon3203/atlas](https://github.com/sanghoon3203/atlas)
 - App ID: `com.team3.atlas`
