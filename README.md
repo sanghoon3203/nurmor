@@ -251,7 +251,7 @@ Authorization: Bearer <아무_문자열>
 ```env
 DB_JDBC_URL=jdbc:postgresql://<host>:5432/atlas?sslmode=require
 DB_USERNAME=atlas
-DB_PASSWORD=database-password
+DB_PASSWORD=database-password   
 GEMINI_API_KEY=gemini-api-key
 GEMINI_MODEL=gemini-1.5-flash
 FIREBASE_STORAGE_BUCKET=firebase-storage-bucket
@@ -467,25 +467,7 @@ eas build --platform ios --profile production
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- ROADMAP -->
-## Roadmap
 
-- [x] Spring Boot 기반 Atlas API 서버 구축
-- [x] Expo Router 기반 5탭 모바일 앱 구성
-- [x] Firebase Auth REST 로그인
-- [x] Firebase Storage 업로드
-- [x] 관찰 기록 생성 API 연결
-- [x] 지도 셀 및 커뮤니티 데이터 흐름 연결
-- [x] 도감 표시 그룹 분류 추가
-- [ ] Gemini 분석 실패 시 임시 후보 fallback 안정화
-- [ ] GIF/이미지 MIME 처리 개선
-- [ ] 도감 대표 이미지와 실제 Storage 이미지 연결
-- [ ] 멸종위기 생물 신고 및 관리자 검수 플로우
-- [ ] Cloud Run / Cloud SQL 운영 배포
-- [ ] EAS 기반 Android/iOS 배포 빌드 자동화
-- [ ] 발표용 데모 데이터 및 시연 시나리오 정리
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- TEAM -->
 ## Team
